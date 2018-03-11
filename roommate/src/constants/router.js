@@ -2,18 +2,25 @@ import React, { Component } from 'react';
 import { View, Text, Button } from 'react-native';
 import { StackNavigator, DrawerNavigator, TabNavigator, TabBarBottom, addNavigationHelpers } from 'react-navigation';
 import Icon from 'react-native-vector-icons/Ionicons';
+import ChatListScreen from '../container/TabMain/chatList.js';
+import RecListScreen from '../container/TabMain/recList.js';
+import MomentScreen from '../container/TabMain/momentShow.js';
+import FriendScreen from '../container/TabMain/friends.js';
+import SelfScreen from '../container/PersonInfo/self.js';
+
+//First LoginIn
 import LoginScreen from '../container/login.js';
 import { ModalScreen } from '../container/login.js';
 import QuizConfirmScreen from '../container/questionConfirm.js';
 import QuestionScreen from '../container/question.js';
 import ResultShowScreen from '../container/resultShow.js';
-import ChatListScreen from '../container/TabMain/chatList.js';
-import RecListScreen from '../container/TabMain/recList.js';
-import MomentScreen from '../container/TabMain/momentShow.js';
+
+//stack navigator
+import ChatRoomScreen from '../container/chatStack/chatRoom.js';
+import UserInfoScreen from '../container/chatStack/userInfo.js';
+import SearchScreen from '../container/chatStack/searchScreen.js';
 import EditMomentScreen from '../container/momentStack/editMoment.js';
 import CommentScreen from '../container/momentStack/comment.js';
-import FriendScreen from '../container/TabMain/friends.js';
-import SelfScreen from '../container/PersonInfo/self.js';
 
 let DeepColor = '#f7d451';
 
@@ -104,12 +111,33 @@ const RootStack = StackNavigator({
 			header: null,
 		}),
 	},
+	ChatList: {
+		screen: ChatListScreen,
+	},
+	RecList: {
+		screen: RecListScreen,
+	},
+	Moments: {
+		screen: MomentScreen,
+	},
+	Friends: {
+		screen: FriendScreen,
+	},
 	EditMoment: {
 		screen: EditMomentScreen, 
 	},
 	Comment: {
 		screen: CommentScreen,
 	},
+	ChatRoom: {
+		screen: ChatRoomScreen,
+	},
+	UserInfo: {
+		screen: UserInfoScreen,
+	},
+	Search: {
+		screen: SearchScreen,
+	}
 },
 {
 	initialRouteName: 'Main', //调试主界面

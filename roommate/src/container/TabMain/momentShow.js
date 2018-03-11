@@ -20,8 +20,8 @@ let FooterHeight = 52; //底部信息栏高度
 let DelBtnWidth = 52;
 let DelBtnHeight = 42;
 
-let avatarWidth = 45;
-let avatarHeight = 45;
+let avatarWidth = 42;
+let avatarHeight = 42;
 
 let data = [
 	{key: '0', userId: 0, avatar: '', userName: '西西西西瓜', time: '2017/11/27 20:45', isliked: false, content: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', img: null, },
@@ -66,7 +66,7 @@ export default class MomentScreen extends Component {
 	_onFooter() {
 		return (
 			<View style={styles.footerWrap}>
-				<Text style={styles.footerContent}>暂无更多内容</Text>
+				<Text style={styles.footerContent}>暂无更多内容~</Text>
 			</View>
 		)
 	}
@@ -149,7 +149,9 @@ export class MomentItem extends PureComponent {
 			return (
 				<View style={styles.ItemWrap}>
 					<View style={styles.userInfoWrap}>
-						<Image style={styles.avatar} source={require('../../../localResource/images/avatar1.jpg')} />
+						<TouchableOpacity activeOpacity={0.6} onPress={ () => {that.props.navigation.navigate('UserInfo');} }>
+							<Image style={styles.avatar} source={require('../../../localResource/images/avatar1.jpg')} />
+						</TouchableOpacity>
 						<View style={styles.middleWrap}>
 							<Text style={{ fontSize: 15 }}>{item.userName}</Text>
 							<Text style={{ fontSize: 12 }}>{item.time}</Text>
@@ -160,14 +162,14 @@ export class MomentItem extends PureComponent {
 						<Text>{item.content}</Text>
 					</View>
 					<View style={styles.bottomWrap}>
-						<TouchableOpacity style={styles.button} activeOpacity={1} onPress={() => {that.props.navigation.navigate('Comment');}} >
-							<Icon name='commenting-o' size={18} style={{ paddingRight: ContentPad, marginBottom: 3, }} />
-							<Text>评论</Text>
+						<TouchableOpacity style={styles.button} activeOpacity={1} onPress={() => {that.props.navigation.navigate('Comment', { item: item, uid: uid,});}} >
+							<Icon name='commenting-o' size={16} style={{ paddingRight: ContentPad, marginBottom: 3, }} />
+							<Text style={{ fontSize: 13 }}>评论</Text>
 						</TouchableOpacity>
 						<View style={styles.verLine}></View>
 						<TouchableOpacity style={styles.button} activeOpacity={1} onPress={(heartColor) => this._onLikePress(heartColor)}>
-							<Icon name="heart-o" size={18} style={{ paddingRight: ContentPad, color: heartColor, }} />
-							<Text>喜欢</Text>
+							<Icon name="heart-o" size={16} style={{ paddingRight: ContentPad, color: heartColor, }} />
+							<Text style={{ fontSize: 13 }}>喜欢</Text>
 						</TouchableOpacity>
 					</View>
 				</View>
@@ -182,7 +184,7 @@ const styles = StyleSheet.create({
 	container: {
 		// flex: 1,
 		width: ScreenWidth,
-		borderWidth: 1,
+		// borderWidth: 1,
 		// alignItems: 'center',
 	},
 	header: {
@@ -191,8 +193,8 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		// borderBottomWidth: 1,
-		// borderColor: '#ccc',
+		borderBottomWidth: 0.3,
+		borderColor: '#ccc',
 		backgroundColor: 'white',
 		// marginBottom: PadBottom,		
 	},
@@ -245,7 +247,7 @@ const styles = StyleSheet.create({
 		// borderWidth: 1,
 		paddingTop: ContentPad,
 		paddingBottom: ContentPad,
-		borderBottomWidth: 1,
+		borderBottomWidth: 0.3,
 		borderColor: '#ddd',
 	},
 	bottomWrap: {
@@ -266,7 +268,7 @@ const styles = StyleSheet.create({
 	},
 	verLine: {
 		height: bottomHeight - 10,
-		width: 1,
+		width: 0.3,
 		backgroundColor: '#ccc',
 	},
 	main: {
@@ -282,7 +284,7 @@ const styles = StyleSheet.create({
 		// marginBottom: 300,
 	},
 	footerContent: {
-		fontSize: 13,
+		fontSize: 12,
 		color: '#ccc',
 	}
 

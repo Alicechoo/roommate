@@ -58,7 +58,7 @@ export default class Chart extends Component {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    // flex: 1,
     // borderWidth: 1, 
     justifyContent: 'center',
     alignItems: 'center',
