@@ -119,7 +119,7 @@ export default class ChatRoomScreen extends Component {
 					showUserAvatar={true}
 					showAvatarForEveryMessage={true}
 					renderAvatarOnTop={true}
-					onPressAvatar={ () => {console.log("now user is ", this.user); this.props.navigation.navigate('UserInfo')} }
+					onPressAvatar={ () => {Keyboard.dismiss(); this.props.navigation.navigate('UserInfo')} }
 					renderBubble={this.renderBubble}
 					renderSend={this.renderSend}
 					user={{

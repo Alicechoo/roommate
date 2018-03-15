@@ -18,6 +18,7 @@ import ResultShowScreen from '../container/resultShow.js';
 //stack navigator
 import ChatRoomScreen from '../container/chatStack/chatRoom.js';
 import UserInfoScreen from '../container/chatStack/userInfo.js';
+import UserDetailScreen from '../container/chatStack/userDetail.js';
 import SearchScreen from '../container/chatStack/searchScreen.js';
 import EditMomentScreen from '../container/momentStack/editMoment.js';
 import CommentScreen from '../container/momentStack/comment.js';
@@ -132,8 +133,13 @@ const RootStack = StackNavigator({
 	ChatRoom: {
 		screen: ChatRoomScreen,
 	},
+	//用户信息页
 	UserInfo: {
 		screen: UserInfoScreen,
+	},
+	//用户问卷调查等详情页
+	UserDetail: {
+		screen: UserDetailScreen,
 	},
 	Search: {
 		screen: SearchScreen,

@@ -25,7 +25,7 @@ let MainColor = '#fce23f'; //主色调
 let DeepColor = '#f7d451';
 
 let selected = [0, 2, 1, 2, 0, 3, 1];
-let labels = ['爱玩游戏','处女座', '早睡', '爱干净', '不抽烟', '喜欢小动物', '喜静'];
+let labels = ['爱玩游戏','处女座', '早睡', '爱干净', '喝酒', '不抽烟', '喜欢小动物', '喜静'];
 
 export default class UserInfoScreen extends Component {
 	static navigationOptions = {
@@ -260,14 +260,14 @@ export default class UserInfoScreen extends Component {
 						</ImageBackground>
 						<View style={styles.detailWrap}>
 							{this._showNickName()}
-							<TouchableOpacity style={styles.detailList}>
+							<TouchableOpacity style={styles.detailList} onPress={() => this.props.navigation.navigate('UserDetail', { type: 'chart',})}>
 								<View style={styles.detailList}>
 									<Icon name="ios-analytics" size={21} />
 									<Text style={{ marginLeft: PadSide, }}>Ta的问卷调查结果</Text>
 								</View>
 								<Icon name="ios-arrow-forward-outline" size={18} />
 							</TouchableOpacity>
-							<TouchableOpacity style={styles.detailList}>
+							<TouchableOpacity style={styles.detailList} onPress={() => this.props.navigation.navigate('UserDetail', { type: 'text',})}>
 								<View style={styles.detailList}>
 									<Icon name="ios-cafe-outline" size={21} />
 									<Text style={{ marginLeft: PadSide, }}>Ta想对室友说的话</Text>

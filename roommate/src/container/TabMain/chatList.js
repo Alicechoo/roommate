@@ -65,7 +65,7 @@ export default class ChatListScreen extends Component {
 			<View style={styles.container} >
 				<StatusBar opacity={0.2} />
 				<View style={styles.header}>	
-					<TouchableOpacity style={styles.headerButton}>
+					<TouchableOpacity style={styles.headerButton} onPress={() => {this.props.navigation.navigate('DrawerOpen')}}>
 						<Image style={styles.avatar} source={require('../../../localResource/images/avatar1.jpg')} />
 					</TouchableOpacity>
 					<Text style={styles.headerTitle}>消息</Text>
