@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, FlatList, } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import Icon from 'react-native-vector-icons/Ionicons';
 
 let Dimensions = require("Dimensions");
 let ScreenHeight = Dimensions.get('window').height;
@@ -36,6 +36,8 @@ let chatList = [
 export default class ChatListScreen extends Component {
 	static navigationOptions = {
 		title: '聊天',
+		drawerLabel: '返回主页',
+		drawerIcon: <Icon name='ios-home-outline' size={25} />
 	};
 
 	constructor(props) {
@@ -70,7 +72,7 @@ export default class ChatListScreen extends Component {
 					</TouchableOpacity>
 					<Text style={styles.headerTitle}>消息</Text>
 					<TouchableOpacity style={styles.headerButton} activeOpacity={0.6} onPress={() => {this.props.navigation.navigate('Search')} }>
-						<Icon name='search' size={21} />
+						<Icon name='ios-search' size={25} />
 					</TouchableOpacity>
 				</View>
 				<View style={styles.main}>

@@ -1,12 +1,20 @@
 import React, { Component } from 'react';
-import { View, Text, Button } from 'react-native';
+import { View, Text, Button, ScrollView, StyleSheet, ImageBackground, Image } from 'react-native';
 import { StackNavigator, DrawerNavigator, TabNavigator, TabBarBottom, addNavigationHelpers } from 'react-navigation';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { DrawerItems, SafeAreaView } from 'react-navigation';
+
 import ChatListScreen from '../container/TabMain/chatList.js';
 import RecListScreen from '../container/TabMain/recList.js';
 import MomentScreen from '../container/TabMain/momentShow.js';
 import FriendScreen from '../container/TabMain/friends.js';
-import SelfScreen from '../container/PersonInfo/self.js';
+
+//PersonInfo
+import SelfScreen from '../container/PersonInfo/modifyInfo.js';
+import MyMomentScreen from '../container/PersonInfo/myMoments.js';
+import RoomScreen from '../container/PersonInfo/myRoom.js';
+import PersonChartScreen from '../container/PersonInfo/personChart.js';
+import SayHiQueScreen from '../container/PersonInfo/sayHiQue.js';
 
 //First LoginIn
 import LoginScreen from '../container/login.js';
@@ -23,6 +31,7 @@ import SearchScreen from '../container/chatStack/searchScreen.js';
 import EditMomentScreen from '../container/momentStack/editMoment.js';
 import CommentScreen from '../container/momentStack/comment.js';
 
+let MainColor = '#fce23f'; //主色调
 let DeepColor = '#f7d451';
 
 //Tab页面
@@ -91,6 +100,53 @@ const MainDraw = DrawerNavigator({
 	Self: {
 		screen: SelfScreen,
 	},
+	MyRoom: {
+		screen: RoomScreen,
+	},
+	MyMoment: {
+		screen: MyMomentScreen,
+	},
+	PersonChart: {
+		screen: PersonChartScreen,
+	},
+	SayHiQue: {
+		screen: SayHiQueScreen,
+	},
+}, {
+	drawerOpenRoute: 'DrawerOpen',
+	drawerCloseRoute: 'DrawerClose',
+	drawerToggleRoute: 'DrawerToggle',
+	order: ['Self', 'SayHiQue', 'PersonChart', 'MyMoment', 'MyRoom', 'MainTab'],
+	initialRouteName: 'MainTab', 
+	contentOptions: {
+		activeTintColor: DeepColor,
+		inactiveTintColor: '#666',
+		labelStyle: {
+			fontWeight: '300',
+		}
+	},
+	contentComponent: props => {
+		console.log('contentComponent');
+		console.log(props);
+		return (
+			<ScrollView>
+				<SafeAreaView forceInset={{ top: 'always', horizontal: 'never' }}>
+					<ImageBackground source={require('../../localResource/images/bgLemon.jpg')} style={styles.header}>
+						<Image source={require('../../localResource/images/avatar1.jpg')} style={styles.avatar} />
+						<View style={styles.headerRight}>
+							<Text>西瓜瓜瓜</Text>
+							<Text numberOfLines={1} style={{ fontSize: 14, }}>我想说的是哈hi我hi二纺机时代峰峻我快速减肥IE</Text>
+						</View>
+					</ImageBackground>
+					<DrawerItems {...props} />
+					<View style={styles.footer}>
+						<Text>退出登录</Text>
+					</View>
+				</SafeAreaView>
+			</ScrollView>
+		)
+	}
+	
 });
 
 const RootStack = StackNavigator({
@@ -170,4 +226,38 @@ const AppNavigator = StackNavigator({
 	headerMode: 'none',
 })
 
+const styles = StyleSheet.create({
+	header: {
+		flex: 1,
+		height: 150,
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingLeft: 8,
+		paddingRight: 8,
+	},
+	avatar: {
+		width: 72,
+		height: 72,
+		borderRadius: 36,
+		marginRight: 12,
+	},
+	headerRight: {
+		width: 180,
+		height: 56,
+		// paddingRight: 4,
+		// borderWidth: 1,
+		justifyContent: 'space-between',
+	},
+	footer: {
+		flex: 1,
+		height: 38,
+		borderRadius: 20,
+		justifyContent: 'center',
+		alignItems: 'center',
+		backgroundColor: MainColor,
+		marginTop: 36,
+		marginLeft: 20,
+		marginRight: 20,
+	},
+})
 export default AppNavigator;
