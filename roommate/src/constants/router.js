@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { View, Text, Button, ScrollView, StyleSheet, ImageBackground, Image } from 'react-native';
+import { View, Text, Button, ScrollView, StyleSheet, ImageBackground, Image, TouchableOpacity, NavigationActions, } from 'react-native';
 import { StackNavigator, DrawerNavigator, TabNavigator, TabBarBottom, addNavigationHelpers } from 'react-navigation';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { DrawerItems, SafeAreaView } from 'react-navigation';
@@ -112,6 +112,9 @@ const MainDraw = DrawerNavigator({
 	SayHiQue: {
 		screen: SayHiQueScreen,
 	},
+	Login: {
+		screen: LoginScreen,
+	},
 }, {
 	drawerOpenRoute: 'DrawerOpen',
 	drawerCloseRoute: 'DrawerClose',
@@ -139,9 +142,20 @@ const MainDraw = DrawerNavigator({
 						</View>
 					</ImageBackground>
 					<DrawerItems {...props} />
-					<View style={styles.footer}>
+					<TouchableOpacity 
+						style={styles.footer} 
+						activeOpacity={0.6}
+						onPress={() => {
+							// const resetAction = NavigationActions.reset({
+							// 	index: 0,
+							// 	actions: [NavigationActions.navigate({ routeName: 'Login'})],
+							// });
+							console.log('this in drawer: ', this);
+							this.props.navigation.dispatch(resetAction)
+						}}
+					>
 						<Text>退出登录</Text>
-					</View>
+					</TouchableOpacity>
 				</SafeAreaView>
 			</ScrollView>
 		)

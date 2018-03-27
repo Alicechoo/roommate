@@ -27,6 +27,7 @@ export default class LoginScreen extends Component {
 	static navigationOptions = ({navigation}) => {
 		return {
 			header: null,
+			drawerLabel: '退出登录',
 		}
 	};
 

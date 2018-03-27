@@ -3977,6 +3977,10 @@ react-native-svg@^6.2.2:
     lodash "^4.16.6"
     pegjs "^0.10.0"
 
+react-native-swipe-list-view@^1.0.6:
+  version "1.0.6"
+  resolved "http://registry.npm.taobao.org/react-native-swipe-list-view/download/react-native-swipe-list-view-1.0.6.tgz#f176cc01ca9ade6212d69f0e6413297231b7dcb0"
+
 react-native-tab-view@^0.0.70:
   version "0.0.70"
   resolved "http://registry.npm.taobao.org/react-native-tab-view/download/react-native-tab-view-0.0.70.tgz#1dd2ded32acd0cb6bfef38d26e53675db733b37b"
