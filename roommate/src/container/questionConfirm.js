@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import { View, Text, TouchableOpacity , StyleSheet, } from 'react-native';
 import { NavigationActions } from 'react-navigation';
+import fetchRequest from '../config/request.js';
+import storage from '../config/storageUtil.js';
 
 let Dimensions = require('Dimensions');
 let ScreenWidth = Dimensions.get('window').width;
@@ -19,13 +21,18 @@ export default class QuizConfirmScreen extends Component {
 		header: null,
 	};
 
+	// componentDidMount() 
+	_onPress() {
+		this.props.navigation.navigate('Question');
+	}
+
 	render() {
 		return (
 			<View style={styles.container}>
 				<Text style={[{ fontSize: 24 }, styles.content]}>开始习惯问卷调查</Text>
 				<Text style={[{ fontSize: 16 }, styles.content]}>习惯调查问卷中，包括了一些生活习惯上的问题。请根据自己平时的生活习惯，选出最贴合实际情况的一项答案。这样才能选出与自己更合拍的室友哦~</Text>
 				<Text style={[{ fontSize: 14, marginTop: ContentMargin}, styles.content]}>该测试可能会占用2~3分钟时间</Text>
-				<TouchableOpacity style={styles.button} activeOpacity={0.5} onPress={() => {this.props.navigation.navigate('Question')}}>
+				<TouchableOpacity style={styles.button} activeOpacity={0.5} onPress={() => this._onPress()}>
 					<Text style={{ fontSize: 18 }}>开始答题</Text>
 				</TouchableOpacity>
 			</View>

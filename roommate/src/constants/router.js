@@ -112,9 +112,9 @@ const MainDraw = DrawerNavigator({
 	SayHiQue: {
 		screen: SayHiQueScreen,
 	},
-	Login: {
-		screen: LoginScreen,
-	},
+	// Login: {
+	// 	screen: LoginScreen,
+	// },
 }, {
 	drawerOpenRoute: 'DrawerOpen',
 	drawerCloseRoute: 'DrawerClose',
@@ -163,7 +163,7 @@ const MainDraw = DrawerNavigator({
 	
 });
 
-const RootStack = StackNavigator({
+const AppNavigator = StackNavigator({
 	Login: {
 		screen: LoginScreen,
 	},
@@ -216,7 +216,7 @@ const RootStack = StackNavigator({
 	}
 },
 {
-	initialRouteName: 'Main', //调试主界面
+	initialRouteName: 'Login', //调试主界面
 	navigationOptions: {
 		headerStyle: {
 			backgroundColor: '#f4511e',
@@ -228,17 +228,17 @@ const RootStack = StackNavigator({
 	},
 });
 
-const AppNavigator = StackNavigator({
-	Root: {
-		screen: RootStack,
-	},
-	MyModal: {
-		screen: ModalScreen,
-	},
-},{
-	mode: 'modal',
-	headerMode: 'none',
-})
+// const RootNavigator = StackNavigator({
+// 	Root: {
+// 		screen: RootStack,
+// 	},
+// 	MyModal: {
+// 		screen: ModalScreen,
+// 	},
+// },{
+// 	mode: 'modal',
+// 	headerMode: 'none',
+// })
 
 const styles = StyleSheet.create({
 	header: {

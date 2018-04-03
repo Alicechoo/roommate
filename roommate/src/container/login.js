@@ -2,6 +2,13 @@ import React, { Component } from 'react';
 import { View, Text, TextInput, Button, TouchableOpacity, StyleSheet, Image, StatusBar, Keyboard } from 'react-native';
 import { NavigationActions } from 'react-navigation';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import fetchRequest from '../config/request.js';
+
+// import storage from '../config/storageUtil.js';
+import '../config/global.js';
+//密码加密
+// let forge = require('node-forge');
+// var md = forge.md.md5.create();
 
 let Dimensions = require('Dimensions');
 let ScreenWidth = Dimensions.get('window').width;
@@ -27,19 +34,166 @@ export default class LoginScreen extends Component {
 	static navigationOptions = ({navigation}) => {
 		return {
 			header: null,
-			drawerLabel: '退出登录',
+			// drawerLabel: '退出登录',
 		}
 	};
 
+	constructor(props) {
+		super(props);
+		this.state = {
+			name: null,
+			password: null,
+			request: null,
+		}
+	}
+
+	componentDidMount() {
+		//本地登录状态未过期
+		console.log('global.user.loginState: ', global.user.loginState);
+		if(global.user.loginState) {
+			const resetAction = NavigationActions.reset({
+				index: 0,
+				actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
+			});
+			this.props.navigation.dispatch(resetAction);
+		}
+		//检查服务器session是否过期
+		else {
+			fetchRequest('', 'GET').then(res => {
+				console.log('res log: ', res);
+				//未登录或登录信息过期
+				if(res.uid === undefined) {
+					console.log('session expire');
+					return false;
+				}
+				else {
+					return true;
+				}
+			})
+			.then(res => {
+				console.log('res in then2: ', res);
+				//登录状态未过期
+				if(res) {
+					const resetAction = NavigationActions.reset({
+						index: 0,
+						actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
+					});
+					this.props.navigation.dispatch(resetAction);
+				}
+			})
+		}
+	}
+
+	_isQueFinished() {
+		console.log('check quefinish');
+		fetchRequest('/app/userQues', 'GET').then(res => {
+			console.log('res user_ques')
+		})
+	}
+
+	_onName(text) {
+		this.setState({
+			name: text,
+		})
+	}
+
+	_onPwd(text) {
+		if(text) {
+			//对密码进行md5加密
+			// md.update(text);
+			// let password = md.digest().toHex();
+			this.setState({
+				password: text,
+			})
+		}
+	}
+
+	_onRequest() {
+		console.log('pressed');
+		fetchRequest('', 'GET').then(res => {
+			console.log('res quesCon: ', res);
+		})
+	}
+
 	_onLogin() {
 		Keyboard.dismiss();
-		const resetAction = NavigationActions.reset({
-			index: 0,
-			actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
-		});
-		this.props.navigation.dispatch(resetAction);
+		if(this.state.name && this.state.password) {
+			this.setState({
+				request: 'ok',
+			})
+			let params = {
+				name: this.state.name,
+				password: this.state.password,
+			};
+			fetchRequest('app/signIn', 'POST', params).then(res => {
+				console.log('res in login.js: ', res);
+				//验证不通过
+				if(res && res.length == 0) {
+					this.setState({
+						request: 'notMatch',
+					})
+				}
+				//验证通过
+				else {
+					console.log('res.name: ', res[0].name);
+					console.log('res.uid: ', res[0].uid);
+					//将用户信息保存
+					global.storage.save({
+						key: 'loginState',
+						data: {
+							name: res[0].name,
+							uid: res[0].uid,
+						},
+						expires: 1000 * 3600 * 24 * 14,
+					})
+					console.log('storage inLogin: ', global.storage);
+					//修改global中的登录状态
+					global.getUid(global.storage);
+					// global.getUid
+					const resetAction = NavigationActions.reset({
+						index: 0,
+						actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
+					});
+					this.props.navigation.dispatch(resetAction);
+				}
+			}).catch( err => {
+				//网络请求失败
+				console.log('err in login.js: ', err);
+				this.setState({
+					request: 'fail',
+				})
+			})
+			// this.props.navigation.navigate('QuizConfirm');
+		}
+		else
+			this.setState({
+				request: 'missKey',
+			})
+	}
 
-		// this.props.navigation.navigate('QuizConfirm');
+	_showTip(type) {
+		let text = null;
+		if(type == 'fail') {
+			text = '服务器异常，请稍后再试...';
+		}
+		// else if(type == 'serverFail') {
+		// 	return (
+		// 		<Text style={{ color: 'red', }}>服务器异常</Text>
+		// 	)
+		// }
+		else if(type == 'missKey') {
+			text = '账号或密码不能为空';
+		}
+		else if(type == 'notMatch') {
+			text = '账号或密码错误';
+		}
+		if(text) {
+			return (
+				<Text style={{ color: 'red', }}>{text}</Text>
+			)
+		}
+		else
+			return null;
 	}
 
 	render() {
@@ -51,19 +205,35 @@ export default class LoginScreen extends Component {
 					<View style={styles.loginWrap}>
 						<View style={[styles.infoInput, { borderBottomWidth: 1, borderBottomColor: '#ccc'}]}>
 							<Icon name="user" size={25} color={MainColor}/>
-							<TextInput placeholder='用户名' style={styles.userInfo} underlineColorAndroid='transparent' maxLength={15} />	
+							<TextInput 
+								placeholder='账号' 
+								style={styles.userInfo} 
+								underlineColorAndroid='transparent' 
+								maxLength={15}
+								onChangeText={(text) => this._onName(text)}
+							/>	
 						</View>
 						<View style={styles.infoInput}>
 							<Icon name="lock" size={26} color={MainColor} />
-							<TextInput placeholder='密码' secureTextEntry={true} style={styles.userInfo} underlineColorAndroid='transparent' />
+							<TextInput 
+								placeholder='密码' 
+								secureTextEntry={true} 
+								style={styles.userInfo} 
+								underlineColorAndroid='transparent' 
+								onChangeText={(text) => this._onPwd(text)}
+							/>
 						</View>	
-					</View>				
+					</View>		
+					{this._showTip(this.state.request)}		
 					<TouchableOpacity style={styles.loginButton} activeOpacity={0.5} onPress={ () => this._onLogin() }>
 						<Text style={{fontSize: 18,}} >登录</Text>
 					</TouchableOpacity>
+					<TouchableOpacity style={styles.loginButton} activeOpacity={0.5} onPress={ () => this._onRequest() }>
+						<Text style={{fontSize: 18,}} >获取/</Text>
+					</TouchableOpacity>
 				</View>				
 				<View style={styles.loginFooter}>
-					<Text>———初始用户名为姓名，初始密码为学号———</Text>
+					<Text>———初始用户名为学号，初始密码为校园卡号———</Text>
 				</View>
 			</View>
 		)
