@@ -62,5 +62,6 @@ fs.readFile('students.txt', function(err, data) {
 		console.log('insert success');
 
 	})
+	connection.end();
 
 })

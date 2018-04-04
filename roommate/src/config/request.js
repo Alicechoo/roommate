@@ -41,8 +41,9 @@ function fetchRequest(url, method, params = '') {
 					return response.json();
 				}
 				else {
-					console.log('response.status: ', response.status);
+					console.log('response: ', response);
 					reject('服务器繁忙，请稍后再试; \r\nCode: ', response.status);
+					return response.json();
 				}
 			})
 			.then((responseData) => {

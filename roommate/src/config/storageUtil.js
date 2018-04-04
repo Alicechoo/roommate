@@ -2,14 +2,18 @@ import React, { Component } from 'react';
 import { AsyncStorage } from 'react-native';
 import Storage from 'react-native-storage';
 
-var storage = new Storage({
-	size: 100,
-	//存储引擎
-	storageBackend: AsyncStorage,
+if(!storage) {
 
-	defaultExpires: 14 * 24 * 60 * 60 * 1000,
-	enableCache: true,
-})
+	var storage = new Storage({
+		size: 100,
+		//存储引擎
+		storageBackend: AsyncStorage,
 
-global.storage = storage;
-export default global.storage;
+		defaultExpires: 14 * 24 * 60 * 60 * 1000,
+		enableCache: true,
+	})
+
+	console.log('storage in util: ', storage);
+	global.storage = storage;
+	// export default global.storage;
+}

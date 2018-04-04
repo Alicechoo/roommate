@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, TouchableNativeFeedback, Modal, Alert} from 'react-native';
 import Icon from 'react-native-vector-icons/EvilIcons';
 import { NavigationActions } from 'react-navigation';
+import fetchRequest from '../config/request.js';
 
 let Dimensions = require('Dimensions');
 let ScreenWidth = Dimensions.get('window').width;
@@ -32,15 +33,16 @@ let TitleHeight = 50; //Modal标题栏高度
 let ButtonHeight = 45; //Modal按钮高度
 let ContentHeight = 56; //Modal内容高度
 
-let QuestionInfo = [{id: 0, title: '对于你来说，是习惯早睡还是习惯熬夜', options: ['早睡，习惯性11点前睡觉', '熬夜，基本不到1点不睡']},
+let QuestionInfo = [{id: 0, title: '对于你来说，是习惯早睡还是习惯熬夜', options: ['早睡，习惯性11点前睡觉', '晚睡，基本不到1点不睡', '熬夜，一般3, 4点睡']},
 	{id: 1, title: '你大概习惯多久打扫一次卫生呢', options: ['一天一次', '三天一次', '一周一次', '无时无刻，一丝灰尘都不能忍', '能不打扫就不打扫']},
-	{id: 2, title: '如果第二天有早课，你会选择几点上床睡觉', options: ['10点前', '10点-11点', '11点-12点', '12点-1点', '1点之后']},
+	// {id: 2, title: '如果第二天有早课，你会选择几点上床睡觉', options: ['10点前', '10点-11点', '11点-12点', '12点-1点', '1点之后']},
 	{id: 3, title: '你抽烟吗，抽烟的时候会打扰室友吗', options: ['抽烟，希望室友也一样', '抽烟，但会尽量不影响他人','不抽烟，不能忍受二手烟', '不抽烟，但不介意室友抽烟']},
 	{id: 4, title: '你是喜欢安静的宿舍氛围还是热闹的呢', options: ['安静，不希望被打扰','热闹，大家一起玩超开心的']},
 	{id: 5, title: '如果有舍友要养小宠物，你能接受吗', options: ['不能', '能']},
 	{id: 6, title: '你会主动打扫公共区域如洗手间，洗漱台吗', options: ['会，希望大家能轮流打扫', '会，不介意自己一个人打扫', '不会']}
 ];
 
+let score = [[10, 5, 1], [8, 6, 3, 10, 1], [2, 5, 9, 7], [10, 2], [1, 10], [7, 9, 1]];
 
 export default class QuestionScreen extends Component {
 	static navigationOptions = {
@@ -51,12 +53,23 @@ export default class QuestionScreen extends Component {
 		super(props);
 		this.state = {
 			nowPage: 0,
+			// quesTitle: null,
+			// quesChoices: null,
 			selected: [],
+			score: [],
 			modalVisible: false,
 			finished: false,
 			unFinishFirst: null,
+			requestSta: null,
 		};
 	}
+	// componentDidMount() {
+	// 	fetchRequest('/app/getQues', 'get').then( res => {
+	// 		console.log('res: ', res);
+	// 		res.send(result);
+	// 		// if(res)
+	// 	})
+	// }
 
 	_onSelect(selected, now, num, key) { 
 			selected[now] = key;
@@ -101,18 +114,49 @@ export default class QuestionScreen extends Component {
 	_onClose() {
 		console.log("this.state.modalVisible is ", this.state.modalVisible);
 		this.setState({
+			requestSta: null,
 			modalVisible: !this.state.modalVisible,
 		});
 		console.log('this.state. modalVisible after close is ', this.state.modalVisible);
 	}
 
-	_onSubmit() {
-		this._onClose();
-		const resetAction = NavigationActions.reset({ 
-			index: 0,
-			actions: [NavigationActions.navigate({ routeName: 'ResultShow', params: { selected: this.state.selected } })],
-		});
-		this.props.navigation.dispatch(resetAction);
+	_onSubmit() {		
+		//将选择传到后台
+		console.log('selected', this.state.selected);
+		let answer = [];
+		this.state.selected.map((value, key) => {
+			answer[key] = score[key][value];
+			console.log('answer: ', answer[key]);
+		})
+		this.setState({
+			score: answer,
+		})
+		console.log('global.user.userData: ', global.user.userData);
+		let params = {
+			uid: global.user.userData.uid,
+			answer: answer,
+		};
+		console.log('answer params: ', params);
+		fetchRequest('app/answer', 'POST', params).then(res => {
+			console.log('res: ', res);
+			if(res == 'success') {
+				this.setState({
+					requestSta: 'success',
+				})
+				global.user.finished = true;
+				this._onClose();
+				const resetAction = NavigationActions.reset({ 
+					index: 0,
+					actions: [NavigationActions.navigate({ routeName: 'ResultShow', params: { score: this.state.score } })],
+				});
+				this.props.navigation.dispatch(resetAction);
+			}
+			else {
+				this.setState({
+					requestSta: 'error',
+				})
+			}
+		})
 		// this.props.navigation.navigate('ResultShow', { selected: this.state.selected });
 	}
 
@@ -201,12 +245,30 @@ export default class QuestionScreen extends Component {
 		}
 	}
 
+	_showReqSta() {
+		let text = '';
+		//问卷未完成或请求成功
+		if(!this.state.finished || this.state.requestSta == 'success') {
+			return null;
+		}
+		else if(this.state.requestSta == 'error') {
+			return (
+				<Text style={{ fontSize: 13, color: 'red', marginTop: 20, }}>提交失败，请稍后再试</Text>
+			) 
+		}
+	}
+
 	render() {
 		let now = this.state.nowPage;
 		let num = QuestionInfo.length;
 		let item = QuestionInfo[now];
 		let items = [];
+		// console.log('now: ', now);
+		// console.log('QuestionInfo: ', QuestionInfo);
+		// console.log('QuestionInfo[now]: ', QuestionInfo[now]);
+		// console.log('QuestionInfo[now].options: ', QuestionInfo[now].options);
 		let itemsNum = QuestionInfo[now].options.length;
+		// console.log('itemsNum', itemsNum);
 
 		QuestionInfo[now].options.map((option, key) => { 
 			let selected = this.state.selected;
@@ -235,6 +297,7 @@ export default class QuestionScreen extends Component {
 					<TouchableOpacity style={styles.modalBackground} onPress={() => {this._onClose()}}>
 						<Image source={require('../../localResource/images/reach_cartoon.png')} style={styles.cartImage} />
 						{this._modalShow()}
+						{this._showReqSta()}
 					</TouchableOpacity>
 				</Modal>
 				<View style={styles.container}>

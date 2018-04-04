@@ -23,6 +23,7 @@ export default class QuizConfirmScreen extends Component {
 
 	// componentDidMount() 
 	_onPress() {
+		console.log('navigate to question');
 		this.props.navigation.navigate('Question');
 	}
 

@@ -34,5 +34,6 @@ fs.readFile('questions.txt', function(err, data) {
 		}
 		console.log('Insert Success');
 	})
+	connection.end();
 
 })

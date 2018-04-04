@@ -29,12 +29,12 @@ export default class ResultShowScreen extends Component {
 
 	render() {
 		const { params } = this.props.navigation.state;
-		const selected = params ? params.selected : null;
+		const score = params ? params.score : null;
 
 		return (
 			<View style={styles.container}>
 				<Text style={styles.title}>我的问卷调查结果</Text>
-					<Chart selected={selected} />
+					<Chart score={score} />
 				<TouchableOpacity style={styles.button} activeOpacity={0.5} onPress={() => this._goToMain()}>
 					<Text style={{ fontSize: 15 }}>继续</Text>
 				</TouchableOpacity>

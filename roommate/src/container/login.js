@@ -51,45 +51,71 @@ export default class LoginScreen extends Component {
 		//本地登录状态未过期
 		console.log('global.user.loginState: ', global.user.loginState);
 		if(global.user.loginState) {
-			const resetAction = NavigationActions.reset({
-				index: 0,
-				actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
-			});
+			let resetAction;
+			//用户完成问卷跳转到主页
+			if(global.user.finished) {
+				resetAction = NavigationActions.reset({
+					index: 0,
+					actions: [NavigationActions.navigate({ routeName: 'Main' })],
+				});
+			}
+			//用户未完成跳转到问卷
+			else {
+				resetAction = NavigationActions.reset({
+					index: 0,
+					actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
+				});
+			}
 			this.props.navigation.dispatch(resetAction);
 		}
 		//检查服务器session是否过期
 		else {
-			fetchRequest('', 'GET').then(res => {
+			fetchRequest('app/check', 'GET').then(res => {
 				console.log('res log: ', res);
+				return res;
 				//未登录或登录信息过期
-				if(res.uid === undefined) {
-					console.log('session expire');
-					return false;
-				}
-				else {
-					return true;
-				}
+				// if(res.uid === undefined) {
+				// 	console.log('session expire');
+				// 	return false;
+				// }
+				// else {
+				// 	return res;
+				// }
 			})
 			.then(res => {
 				console.log('res in then2: ', res);
 				//登录状态未过期
-				if(res) {
-					const resetAction = NavigationActions.reset({
-						index: 0,
-						actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
-					});
+				if(res.uid !== undefined) {
+					let resetAction;
+					global.user.loginState = true;
+					global.user.userData = res;
+					console.log('global.user.userData: ', global.user.userData);
+					//用户完成问卷跳转到主页
+					if(res.finished) {
+						resetAction = NavigationActions.reset({
+							index: 0,
+							actions: [NavigationActions.navigate({ routeName: 'Main' })],
+						});
+					}
+					//用户未完成问卷跳转到问卷
+					else {
+						resetAction = NavigationActions.reset({
+							index: 0,
+							actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
+						});
+					}
 					this.props.navigation.dispatch(resetAction);
 				}
 			})
 		}
 	}
 
-	_isQueFinished() {
-		console.log('check quefinish');
-		fetchRequest('/app/userQues', 'GET').then(res => {
-			console.log('res user_ques')
-		})
-	}
+	// _isQueFinished() {
+	// 	console.log('check quefinish');
+	// 	fetchRequest('/app/userQues', 'GET').then(res => {
+	// 		console.log('res user_ques')
+	// 	})
+	// }
 
 	_onName(text) {
 		this.setState({
@@ -143,17 +169,36 @@ export default class LoginScreen extends Component {
 						data: {
 							name: res[0].name,
 							uid: res[0].uid,
+							finished: res[0].finished, //完成则为true,未完成为undefined
 						},
 						expires: 1000 * 3600 * 24 * 14,
 					})
 					console.log('storage inLogin: ', global.storage);
 					//修改global中的登录状态
-					global.getUid(global.storage);
+					global.user.loginState = true;
+					global.user.userData = {
+							name: res[0].name,
+							uid: res[0].uid,
+							finished: res[0].finished,
+					};
+					// global.getUid(global.storage);
+					console.log('global.user', global.user);
 					// global.getUid
-					const resetAction = NavigationActions.reset({
-						index: 0,
-						actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
-					});
+					let resetAction;
+					//用户完成问卷
+					if(res[0].finished) {
+						resetAction = NavigationActions.reset({
+							index: 0,
+							actions: [NavigationActions.navigate({ routeName: 'Main' })],
+						});
+					}
+					//用户未完成问卷
+					else {
+						resetAction = NavigationActions.reset({
+							index: 0,
+							actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
+						});
+					}
 					this.props.navigation.dispatch(resetAction);
 				}
 			}).catch( err => {
@@ -227,9 +272,6 @@ export default class LoginScreen extends Component {
 					{this._showTip(this.state.request)}		
 					<TouchableOpacity style={styles.loginButton} activeOpacity={0.5} onPress={ () => this._onLogin() }>
 						<Text style={{fontSize: 18,}} >登录</Text>
-					</TouchableOpacity>
-					<TouchableOpacity style={styles.loginButton} activeOpacity={0.5} onPress={ () => this._onRequest() }>
-						<Text style={{fontSize: 18,}} >获取/</Text>
 					</TouchableOpacity>
 				</View>				
 				<View style={styles.loginFooter}>

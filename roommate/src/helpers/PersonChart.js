@@ -14,7 +14,7 @@ let ScreenHeight = Dimensions.get('window').height;
 
 let data=[
               { x: '早睡', y: 20, fill: "violet" },
-              { x: '爱干净', y: 30, fill: "cornflowerblue" },
+              { x: '洁癖', y: 30, fill: "cornflowerblue" },
               { x: '不抽烟', y: 65, fill: "gold" },
               { x: '喜静', y: 50, fill: "orange" },
               { x: '接受小动物', y: 40, fill: "turquoise" },
@@ -26,16 +26,18 @@ let data=[
 
 export default class Chart extends Component {
   render() {
-    const selected = this.props.selected;
+    const score = this.props.score;
+    console.log('score: ', score);
     // console.log("selected in Chart is ", selected);
 
     data.map((d, key) => {
-      if(key == 0)
-        d.y = (selected[2] + 1) * 10;
-      else if(key == 1)
-        d.y = (selected[key] + 1) * 10;
-      else
-        d.y = (selected[key + 1] + 1) * 10;
+      d.y = score[key];
+      // if(key == 0)
+      //   d.y = score[2] + 1;
+      // else if(key == 1)
+      //   d.y = score[key] + 1;
+      // else
+      //   d.y = score[key + 1] + 1;
     });
 
     return (
@@ -46,8 +48,8 @@ export default class Chart extends Component {
           onLoad: { duration: 1000 }
         }} >
           <VictoryPolarAxis />
-          <VictoryBar domain={{ y: [0, 50] }} polar categories={{
-            x: ['早睡', '爱干净', '不抽烟', '喜静', '接受小动物', '公共卫生', 'null']
+          <VictoryBar domain={{ y: [0, 10] }} polar categories={{
+            x: ['早睡', '洁癖', '不抽烟', '喜静', '接受小动物', '公共卫生', 'null']
             }} data={data} style={{ data:{ fill: "tomato", opacity: 0.6, width: 32, } }} 
           />
         </VictoryChart>
