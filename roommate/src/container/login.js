@@ -47,76 +47,6 @@ export default class LoginScreen extends Component {
 		}
 	}
 
-	componentDidMount() {
-		//本地登录状态未过期
-		console.log('global.user.loginState: ', global.user.loginState);
-		if(global.user.loginState) {
-			let resetAction;
-			//用户完成问卷跳转到主页
-			if(global.user.finished) {
-				resetAction = NavigationActions.reset({
-					index: 0,
-					actions: [NavigationActions.navigate({ routeName: 'Main' })],
-				});
-			}
-			//用户未完成跳转到问卷
-			else {
-				resetAction = NavigationActions.reset({
-					index: 0,
-					actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
-				});
-			}
-			this.props.navigation.dispatch(resetAction);
-		}
-		//检查服务器session是否过期
-		else {
-			fetchRequest('app/check', 'GET').then(res => {
-				console.log('res log: ', res);
-				return res;
-				//未登录或登录信息过期
-				// if(res.uid === undefined) {
-				// 	console.log('session expire');
-				// 	return false;
-				// }
-				// else {
-				// 	return res;
-				// }
-			})
-			.then(res => {
-				console.log('res in then2: ', res);
-				//登录状态未过期
-				if(res.uid !== undefined) {
-					let resetAction;
-					global.user.loginState = true;
-					global.user.userData = res;
-					console.log('global.user.userData: ', global.user.userData);
-					//用户完成问卷跳转到主页
-					if(res.finished) {
-						resetAction = NavigationActions.reset({
-							index: 0,
-							actions: [NavigationActions.navigate({ routeName: 'Main' })],
-						});
-					}
-					//用户未完成问卷跳转到问卷
-					else {
-						resetAction = NavigationActions.reset({
-							index: 0,
-							actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
-						});
-					}
-					this.props.navigation.dispatch(resetAction);
-				}
-			})
-		}
-	}
-
-	// _isQueFinished() {
-	// 	console.log('check quefinish');
-	// 	fetchRequest('/app/userQues', 'GET').then(res => {
-	// 		console.log('res user_ques')
-	// 	})
-	// }
-
 	_onName(text) {
 		this.setState({
 			name: text,
@@ -136,7 +66,7 @@ export default class LoginScreen extends Component {
 
 	_onRequest() {
 		console.log('pressed');
-		fetchRequest('', 'GET').then(res => {
+		fetchRequest('/', 'GET').then(res => {
 			console.log('res quesCon: ', res);
 		})
 	}
@@ -151,7 +81,7 @@ export default class LoginScreen extends Component {
 				name: this.state.name,
 				password: this.state.password,
 			};
-			fetchRequest('app/signIn', 'POST', params).then(res => {
+			fetchRequest('/app/signIn', 'POST', params).then(res => {
 				console.log('res in login.js: ', res);
 				//验证不通过
 				if(res && res.length == 0) {
@@ -160,7 +90,10 @@ export default class LoginScreen extends Component {
 					})
 				}
 				//验证通过
-				else {
+				else if(res != 'Error') {
+					this.setState({
+						request: 'loading',
+					})
 					console.log('res.name: ', res[0].name);
 					console.log('res.uid: ', res[0].uid);
 					//将用户信息保存
@@ -201,6 +134,12 @@ export default class LoginScreen extends Component {
 					}
 					this.props.navigation.dispatch(resetAction);
 				}
+				//数据库请求失败
+				else {
+					this.setState({
+						request: 'sqlErr',
+					})
+				}
 			}).catch( err => {
 				//网络请求失败
 				console.log('err in login.js: ', err);
@@ -232,14 +171,23 @@ export default class LoginScreen extends Component {
 		else if(type == 'notMatch') {
 			text = '账号或密码错误';
 		}
+		else if(type == 'sqlErr') {
+			text = '数据库请求失败';
+		}
 		if(text) {
 			return (
 				<Text style={{ color: 'red', }}>{text}</Text>
 			)
 		}
+		else if(type == 'loading') {
+			return (
+				<Text>正在登录...</Text>
+			)
+		}
 		else
 			return null;
 	}
+
 
 	render() {
 		return (
@@ -251,7 +199,7 @@ export default class LoginScreen extends Component {
 						<View style={[styles.infoInput, { borderBottomWidth: 1, borderBottomColor: '#ccc'}]}>
 							<Icon name="user" size={25} color={MainColor}/>
 							<TextInput 
-								placeholder='账号' 
+								placeholder='用户名' 
 								style={styles.userInfo} 
 								underlineColorAndroid='transparent' 
 								maxLength={15}
@@ -275,7 +223,7 @@ export default class LoginScreen extends Component {
 					</TouchableOpacity>
 				</View>				
 				<View style={styles.loginFooter}>
-					<Text>———初始用户名为学号，初始密码为校园卡号———</Text>
+					<Text>———初始用户名为姓名，初始密码为校园卡号———</Text>
 				</View>
 			</View>
 		)

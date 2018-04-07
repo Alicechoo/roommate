@@ -1,4 +1,4 @@
-let common_url = 'http://192.168.253.1:8080/'; //服务器地址
+let common_url = 'http://192.168.253.1:8080'; //服务器地址
 let token = '';
 
 function fetchRequest(url, method, params = '') {

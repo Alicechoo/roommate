@@ -1,7 +1,9 @@
 import React, { Component } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import fetchRequest from '../../config/request.js';
 
+let imgCom_url = 'http://192.168.253.1:8080/images';
 let Dimensions = require("Dimensions");
 let ScreenHeight = Dimensions.get('window').height;
 let ScreenWidth = Dimensions.get('window').width;
@@ -45,9 +47,23 @@ export default class RecListScreen extends Component {
 	}
 
 	componentDidMount() {
-		this.setState({
-			uid: 1,
-			data: data,
+		fetchRequest('/app/getRec', 'POST').then(res => {
+			if(res != 'Error') {
+				console.log('getRec: ', res);
+				console.log('global.user.userData.uid: ', global.user.userData.uid);
+				res.map((value, key) => {
+					value.key = key;
+				})
+				this.setState({
+					uid: global.user.userData.uid,
+					data: res,
+				})
+			}
+			else 
+				console.log('getRec error');
+		})
+		.catch(err => {
+			console.log('getRecList error');
 		})
 	}
 
@@ -63,16 +79,12 @@ export default class RecListScreen extends Component {
 		return (
 			<View style={styles.container} >
 				<View style={styles.header}>	
-					<View style={styles.headerButton}></View>
 					<Text style={styles.headerTitle}>推荐列表</Text>
-					<TouchableOpacity style={styles.headerButton} activeOpacity={0.7} >
-						<Text style={{ color: DeepColor }}>筛选</Text>
-					</TouchableOpacity>
 				</View>
 				<View style={styles.main}>
 					<FlatList 
 						data={this.state.data}
-						renderItem={ ({item}) => <RecItem item={item} parentRef={this} /> }
+						renderItem={ ({item, index}) => <RecItem item={item} parentRef={this} key={index} /> }
 						contentContainerStyle={{paddingBottom: 54 }} 
 						ListFooterComponent={this.onFooter()}
 					/>
@@ -85,13 +97,21 @@ export default class RecListScreen extends Component {
 class RecItem extends Component {
 	_showStars(num) {
 		let stars = [];
+		num = Math.ceil(Math.round(num*10)/2)
 		console.log("star num is ", num);
-		for(let i = 0; i < num/2; i++) {
-			stars.push(
-				<Icon name='md-star' key={i} color={MainColor} size={18} />
+		if(num > 0) {
+			for(let i = 0; i < num; i++) {
+				stars.push(
+					<Icon name='md-star' key={i} color={MainColor} size={18} />
+				)
+			}
+			return stars;
+		}
+		else {
+			return (
+				<Icon name='md-star' color={'#ccc'} size={18} />
 			)
 		}
-		return stars;
 	}
 
 	render() {
@@ -99,14 +119,14 @@ class RecItem extends Component {
 		const that = this.props.parentRef;
 
 		return (
-			<TouchableOpacity style={styles.itemWrap} activeOpacity={0.6} onPress={ () => { that.props.navigation.navigate('UserInfo') }} >
-				<Image style={styles.itemLeft} source={require('../../../localResource/images/avatar2.jpg')} />
+			<TouchableOpacity style={styles.itemWrap} activeOpacity={0.6} onPress={ () => { that.props.navigation.navigate('UserInfo', {uid: item.rec_uid, correlation: item.correlation}) }} >
+				<Image style={styles.itemLeft} source={{uri: imgCom_url + item.avatar }} />
 				<View style={styles.itemRight}>
 					<View style={styles.infoMiddle}>
-						<Text style={{ color: '#444', fontSize: 15,}}>{item.userName}</Text>
+						<Text style={{ color: '#444', fontSize: 15,}}>{item.name}</Text>
 						<View style={styles.stars}>
 							<Text style={{ fontSize: 12, marginRight: 5 }}>匹配指数: </Text>
-							{this._showStars(item.matchScore)}
+							{this._showStars(item.correlation)}
 						</View>
 					</View>					
 					<Icon name='ios-arrow-forward' size={18} />					
@@ -160,7 +180,7 @@ const styles = StyleSheet.create({
 		height: HeaderHeight,
 		// borderWidth: 1,
 		flexDirection: 'row',
-		justifyContent: 'space-between',
+		justifyContent: 'center',
 		alignItems: 'center',
 		borderBottomWidth: 0.3,
 		borderColor: '#ccc',

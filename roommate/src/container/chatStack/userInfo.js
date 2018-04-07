@@ -2,7 +2,9 @@ import React, { Component } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList, Alert, Image, ImageBackground, ScrollView, Modal, TextInput } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { NavigationActions } from 'react-navigation';
+import fetchRequest from '../../config/request.js';
 
+let imgCom_url = 'http://192.168.253.1:8080/images';
 let ScreenHeight = Dimensions.get('window').height;
 let ScreenWidth = Dimensions.get('window').width;
 
@@ -35,29 +37,91 @@ export default class UserInfoScreen extends Component {
 	constructor(props) {
 		super(props);
 		this.state = {
-			uid: 1,
 			isFriend: false,
-			userId: 0,
+			friName: null,
+			correlation: null,
+			//推荐用户信息
+			userId: null,
 			userInfo: null,
+			ready: false,
+
 			inputLen: 0,
 			remark: null,
 			modalVisible: false,
 		}
 	}
 
-	_showStars(num) {
-		let stars = [];
-		console.log("star num is ", num);
-		for(let i = 0; i < num/2; i++) {
-			stars.push(
-				<Icon name='md-star' key={i} color={MainColor} size={18} style={{ marginRight: 3, }}/>
-			)
+	componentDidMount() {
+		let { params } = this.props.navigation.state;
+		let userId = params ? params.uid : null;
+		let correlation = params ? params.correlation : null;
+		console.log('uid: ', userId);
+		if(userId && correlation) {
+			this.setState({
+				userId: userId,
+				correlation: correlation,
+			})
+			let param1 = {
+				uid: userId,
+			};
+			//获取用户数据
+			fetchRequest('/app/getUserInfo', 'POST', param1).then(res1 => {
+				if(res1 == 'Error') {
+					console.log('getUserInfo failed in userInfo');
+				}
+				else {
+					console.log('userInfo: ', res1);
+					let param2 = {
+						current_uid: global.user.userData.uid,
+						fri_uid: userId,
+					};
+					//获取好友信息
+					fetchRequest('/app/friCheck', 'POST', param2).then(res2 => {
+						if(res2 == 'Error') {
+							console.log('friendCheck failed');
+						}
+						else {
+							console.log('friCheck res: ',res2);
+							this.setState({
+								isFriend: res2.length ? true : false,
+								friName: res2.length ? res2[0].fri_name : null,
+								userInfo: res1[0],
+								ready: true,
+							})
+						}
+					})
+					.catch(err => {
+						console.log('friCheck err: ', err);
+					}) 
+				}
+
+			}).catch(err => {
+				console.log('getUserInfo error: ', err);
+			})
 		}
-		return stars;
 	}
 
-	_addRemarks() {
-		if(this.state.isFriend) {
+	_showStars(num) {
+		let stars = [];
+		num = Math.ceil(Math.round(num*10)/2)
+		console.log("star num is ", num);
+		if(num > 0) {
+			for(let i = 0; i < num; i++) {
+				stars.push(
+					<Icon name='md-star' key={i} color={MainColor} size={18} />
+				)
+			}
+			return stars;
+		}
+		else {
+			return (
+				<Icon name='md-star' color={'#ccc'} size={18} />
+			)
+		}
+	}
+
+	_addRemarks(isFriend) {
+		if(isFriend) {
 			console.log("yes, she's my friend");
 			return (
 				<TouchableOpacity style={styles.addRemarks} activeOpacity={0.6} onPress={ () => {this._onShow()} }>
@@ -113,13 +177,14 @@ export default class UserInfoScreen extends Component {
 		// 		{text: '确定', onPress: () => console.log('OK Pressed')},
 		// 	]
 		// )
+		//Todo: send invate to userId
 		this.setState({
 			modalVisible: true,
 		})
 	}
 
-	_footerContent() {
-		if(this.state.isFriend) {
+	_footerContent(isFriend) {
+		if(isFriend) {
 			return (
 				<TouchableOpacity style={styles.footer} activeOpacity={0.6} onPress={() => {this._onSendMes()} }>
 					<Icon name="ios-text-outline" size={24} />
@@ -135,7 +200,7 @@ export default class UserInfoScreen extends Component {
 						<Text style={{ marginLeft: PadSide, }}>加好友</Text>
 					</TouchableOpacity>
 					<View style={styles.verLine}></View>
-					<TouchableOpacity style={styles.footerBtn} activeOpacity={0.6} onPress={ () => {this.props.navigation.navigate('ChatRoom', { userId: 1, })} }>
+					<TouchableOpacity style={styles.footerBtn} activeOpacity={0.6} onPress={ () => {this.props.navigation.navigate('ChatRoom', { userId: this.state.userId, })} }>
 						<Icon name="ios-text-outline" size={24} />
 						<Text style={{ marginLeft: PadSide, }}>打招呼</Text>
 					</TouchableOpacity>
@@ -185,13 +250,13 @@ export default class UserInfoScreen extends Component {
 		}
 	}
 
-	_showNickName() {
-		if(this.state.isFriend) 
+	_showNickName(isFriend) {
+		if(isFriend) 
 			return (
 				<View style={styles.detailList}>
 					<View style={styles.detailList}>
 						<Icon name="ios-at-outline" size={21} />
-						<Text style={{ marginLeft: PadSide, }}>Ta的昵称：this.props.userName</Text>
+						<Text style={{ marginLeft: PadSide, }}>Ta的昵称：{this.state.friName}</Text>
 					</View>
 				</View>
 			);
@@ -201,14 +266,104 @@ export default class UserInfoScreen extends Component {
 
 	_showLabels(labels) {
 		let items = [];
-		labels.map( (label, key) => {
-			items.push(
-				<View style={styles.label} key={key}>
-					<Text>{label}</Text>
+		//用户标签不为空
+		if(labels) {
+			labels.map( (label, key) => {
+				items.push(
+					<View style={styles.label} key={key}>
+						<Text>{label}</Text>
+					</View>
+				)
+			})
+			return items;
+		}
+		//用户标签为空
+		else {
+			return (
+				<View style={{width: ScreenWidth - 2*PadSide, height: 28, alignItems: 'center'}}>
+					<Text style={{ fontSize: 13, color: '#ccc' }}>该用户还没有为自己添加标签哦~</Text>
 				</View>
 			)
-		})
-		return items;
+		}
+	}
+
+	_showContent(ready) {
+		//获取数据完毕
+		if(ready) {
+			return (
+				<View style={styles.container}>
+					<ScrollView 
+						contentContainerStyle={{paddingBottom: 54 }}
+					>
+						<ImageBackground 
+							style={styles.header}
+							source={require('../../../localResource/images/bgFriend.jpg')}
+						>
+							<View style={styles.headerBar}>
+								<TouchableOpacity style={styles.headBackBtn} onPress={() => {this.props.navigation.goBack()} }>
+									<Icon name='ios-arrow-back-outline' size={22} />
+								</TouchableOpacity>
+								<Text style={{ fontSize: 16, }}>{this.state.userInfo.name}</Text>
+								<View style={styles.headBackBtn} ></View>
+							</View>
+							<View style={styles.infoWrap}>
+								<View style={styles.userInfoWrap}>
+									<Image style={styles.userAvatar} source={{ uri: imgCom_url + this.state.userInfo.avatar }} />
+									<View style={styles.userInfo}>
+										<View style={styles.topUserInfo}>
+											<Text numberOfLines={1} style={{ width: '65%', fontSize: 16, color: '#666',  }}>{this.state.userInfo.name}</Text>
+											{this._addRemarks(this.state.isFriend)}
+										</View>
+										<Text numberOfLines={2} style={{ width: '100%', }}>
+											{this.state.userInfo.signature}
+										</Text> 
+									</View>
+								</View>
+								<View style={styles.recWrap}>
+									<Text style={{ fontSize: 13, marginRight: 5 }}>Ta与我的相似度为: </Text>
+									{this._showStars(this.state.correlation)}
+								</View>
+							</View>
+						</ImageBackground>
+						<View style={styles.detailWrap}>
+							{this._showNickName(this.state.isFriend)}
+							<TouchableOpacity style={styles.detailList} onPress={() => this.props.navigation.navigate('UserDetail', { type: 'chart', content: this.state.userId})}>
+								<View style={styles.detailList}>
+									<Icon name="ios-analytics" size={21} />
+									<Text style={{ marginLeft: PadSide, }}>Ta的问卷调查结果</Text>
+								</View>
+								<Icon name="ios-arrow-forward-outline" size={18} />
+							</TouchableOpacity>
+							<TouchableOpacity style={styles.detailList} onPress={() => this.props.navigation.navigate('UserDetail', { type: 'text', content: this.state.userInfo.signature})}>
+								<View style={styles.detailList}>
+									<Icon name="ios-cafe-outline" size={21} />
+									<Text style={{ marginLeft: PadSide, }}>Ta想对室友说的话</Text>
+								</View>
+								<Icon name="ios-arrow-forward-outline" size={18} />
+							</TouchableOpacity>
+							<View>
+								<View style={styles.labelTitle}>
+									<View style={[styles.horLine, { width: 88, }]}></View>
+									<Text style={{ marginLeft: PadSide, marginRight: PadSide, }}>Ta的个性标签</Text>
+									<View style={[styles.horLine, { width: 88, }]}></View>
+								</View>
+								<View style={styles.labelWrap}>
+									{this._showLabels(this.state.userInfo.labels)}
+								</View>
+							</View>
+						</View>
+					</ScrollView>
+					{this._footerContent(this.state.isFriend)}
+				</View>
+			)
+		}
+		else {
+			return (
+				<View style={{height: ScreenHeight, justifyContent: 'center', alignItems: 'center'}}>
+					<Text>正在加载...</Text>
+				</View>
+			)
+		}
 	}
 
 	render() {
@@ -224,70 +379,7 @@ export default class UserInfoScreen extends Component {
 						{this.modalShow()}
 					</TouchableOpacity>
 				</Modal>
-				<View style={styles.container}>
-					<ScrollView 
-						contentContainerStyle={{paddingBottom: 54 }}
-					>
-						<ImageBackground 
-							style={styles.header}
-							source={require('../../../localResource/images/bgFriend.jpg')}
-						>
-							<View style={styles.headerBar}>
-								<TouchableOpacity style={styles.headBackBtn} onPress={() => {this.props.navigation.goBack()} }>
-									<Icon name='ios-arrow-back-outline' size={22} />
-								</TouchableOpacity>
-								<Text style={{ fontSize: 16, }}>知士</Text>
-								<View style={styles.headBackBtn} ></View>
-							</View>
-							<View style={styles.infoWrap}>
-								<View style={styles.userInfoWrap}>
-									<Image style={styles.userAvatar} source={require('../../../localResource/images/avatar2.jpg')} />
-									<View style={styles.userInfo}>
-										<View style={styles.topUserInfo}>
-											<Text numberOfLines={1} style={{ width: '65%', fontSize: 16, color: '#666',  }}>知士</Text>
-											{this._addRemarks()}
-										</View>
-										<Text numberOfLines={2} style={{ width: '100%', }}>
-											我喜欢你的眼睛 你的睫毛 你的冷傲 我喜欢你的酒窝 你的嘴角 你的微笑 我喜欢你全世界都知道
-										</Text> 
-									</View>
-								</View>
-								<View style={styles.recWrap}>
-									<Text style={{ fontSize: 13, marginRight: 5 }}>Ta与我的相似度为: </Text>
-									{this._showStars(8)}
-								</View>
-							</View>
-						</ImageBackground>
-						<View style={styles.detailWrap}>
-							{this._showNickName()}
-							<TouchableOpacity style={styles.detailList} onPress={() => this.props.navigation.navigate('UserDetail', { type: 'chart',})}>
-								<View style={styles.detailList}>
-									<Icon name="ios-analytics" size={21} />
-									<Text style={{ marginLeft: PadSide, }}>Ta的问卷调查结果</Text>
-								</View>
-								<Icon name="ios-arrow-forward-outline" size={18} />
-							</TouchableOpacity>
-							<TouchableOpacity style={styles.detailList} onPress={() => this.props.navigation.navigate('UserDetail', { type: 'text',})}>
-								<View style={styles.detailList}>
-									<Icon name="ios-cafe-outline" size={21} />
-									<Text style={{ marginLeft: PadSide, }}>Ta想对室友说的话</Text>
-								</View>
-								<Icon name="ios-arrow-forward-outline" size={18} />
-							</TouchableOpacity>
-							<View>
-								<View style={styles.labelTitle}>
-									<View style={[styles.horLine, { width: 88, }]}></View>
-									<Text style={{ marginLeft: PadSide, marginRight: PadSide, }}>Ta的个性标签</Text>
-									<View style={[styles.horLine, { width: 88, }]}></View>
-								</View>
-								<View style={styles.labelWrap}>
-									{this._showLabels(labels)}
-								</View>
-							</View>
-						</View>
-					</ScrollView>
-					{this._footerContent()}
-				</View>
+				{this._showContent(this.state.ready)}
 			</View>
 		);
 	}

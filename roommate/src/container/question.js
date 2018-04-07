@@ -137,7 +137,7 @@ export default class QuestionScreen extends Component {
 			answer: answer,
 		};
 		console.log('answer params: ', params);
-		fetchRequest('app/answer', 'POST', params).then(res => {
+		fetchRequest('/app/answer', 'POST', params).then(res => {
 			console.log('res: ', res);
 			if(res == 'success') {
 				this.setState({

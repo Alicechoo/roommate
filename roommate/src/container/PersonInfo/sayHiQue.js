@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { View, Text, TextInput, Image, TouchableOpacity, StyleSheet, Dimensions, ScrollView, Modal, } from 'react-native';
 import Icon from 'react-native-vector-icons/EvilIcons';
 import { SwipeListView } from 'react-native-swipe-list-view';
+import fetchRequest from '../../config/request.js';
 
 let ScreenWidth = Dimensions.get('window').width;
 let ScreenHeight = Dimensions.get('window').height;
@@ -33,7 +34,6 @@ let questions = [
 ];
 let recQues = [
 	{question: '能接受在宿舍吃螺蛳粉吗',},
-	{question: '对处女座什么看法',},
 	{question: '早上大概几点起',},
 	{question: '有考研的打算吗',},
 ];
@@ -49,6 +49,7 @@ export default class SayHiQueScreen extends Component {
 		this.state = {
 			questions: null,
 			recQues: null,
+			recData: null,
 			modalVisible: false,
 			inputLen: 0,
 			inputText: null,
@@ -56,9 +57,65 @@ export default class SayHiQueScreen extends Component {
 	}
 
 	componentDidMount() {
+		this.getInitData(global.user.userData.uid);
+		this.getRecData();
+	}
+
+	getInitData(uid) {
+		let params = {
+			uid: uid,
+		};
+		fetchRequest('/app/getSayHi', 'POST', params).then(res => {
+			if(res != 'Error') {
+				console.log('getSayHi res: ', res);
+				res.map((value, key) => {
+					value.key = key;
+				})
+				console.log('getSayhi setKey res: ', res);
+				this.setState({
+					questions: res,
+				})
+			}
+		})
+		.catch(err => {
+			console.log('getSayHi Err: ', err);
+			this.setState({
+				questions: [],
+			})
+		})
+	}
+
+	getRecData() {
+		fetchRequest('/app/getRecData', 'POST').then(res => {
+			if(res != 'Error') {
+				console.log('getRecData res: ', res);
+				this.setState({
+					recData: res,
+				})
+				this.getRecQue(this.state.recData);
+			}
+			else {
+				console.log('getRecData Error');
+			}
+		})
+		.catch(err => {
+			console.log('getRecQue Err: ', err);
+		})
+	}	
+
+	getRecQue(data) {
+		// console.log('recData: ', recData);
+		let rec = [];
+
+		//随机从中取四个
+		for(let i = 0; i < 4; i++) {
+			let num = Math.round(Math.random() * 100 ) % data.length;
+			console.log('num: ', num);
+			rec.push(data[num]);
+		}
+		console.log('rec: ',rec);
 		this.setState({
-			questions: questions,
-			recQues: recQues,
+			recQues: rec,
 		})
 	}
 
@@ -184,6 +241,26 @@ export default class SayHiQueScreen extends Component {
 			})
 		}
 	}
+
+	//确认Sayhi问题设置
+	_onSubmit() {
+		let uid = global.user.userData.uid;
+		let params = {
+			uid: uid,
+			questions: this.state.questions,
+		};
+		console.log('submit params: ', params);
+		fetchRequest('/app/setSayHi', 'POST', params).then(res => {
+			if(res != 'Error') {
+				console.log('set sayhi success');
+			}
+			else 
+				console.log('set sayhi fail');
+		})
+		.catch(err => {
+			console.log('submit Err: ', err);
+		})
+	}
 	
 	render() {
 		return (
@@ -250,13 +327,16 @@ export default class SayHiQueScreen extends Component {
 						<View style={styles.recQue}>
 							<View style={styles.recTitleWrap}>
 								<Text style={{ fontWeight: 'bold', fontSize: 17, color: '#555' }}>推荐问题</Text>
-								<TouchableOpacity style={styles.titleRight} activeOpacity={0.6}>
+								<TouchableOpacity style={styles.titleRight} activeOpacity={0.6} onPress={() => this.getRecQue(this.state.recData)}>
 									<Icon name='refresh' size={21} color={'white'} />
 									<Text style={{ color: 'white', fontSize: 13, }}>换一换</Text>
 								</TouchableOpacity>
 							</View>
 							{this.showRecQues(this.state.recQues)}
 						</View>
+						<TouchableOpacity style={styles.footerBtn} onPress={() => this._onSubmit()}>
+							<Text>确认修改</Text>
+						</TouchableOpacity>
 					</ScrollView>
 				</View>
 			</View>
@@ -428,5 +508,15 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		alignItems: 'center',
 		backgroundColor: MainColor,
+	},
+	footerBtn: {
+		width: ScreenWidth - 6*PadSide,
+		height: 38,
+		justifyContent: 'center',
+		alignItems: 'center',
+		alignSelf: 'center',
+		borderRadius: 10,
+		backgroundColor: MainColor,
+		marginTop: 42,
 	}
 })

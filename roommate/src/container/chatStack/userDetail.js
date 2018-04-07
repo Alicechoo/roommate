@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Chart from '../../helpers/PersonChart.js';
+import fetchRequest from '../../config/request.js';
 
 let HeaderBarHeight = 48; //顶部栏高度
 let HeaderBtnWidth = 28; //顶部栏按钮宽度
@@ -15,39 +16,79 @@ export default class UserDetailScreen extends Component {
 		header: null,
 	};
 
+	constructor(props) {
+		super(props);
+		this.state = {
+			type: null,
+			text: null,
+			content: null,
+		}
+	}
+
+	componentDidMount() {
+		let { params } = this.props.navigation.state;
+		let type = params ? params.type : null;
+		let content = params ? params.content : null;
+		this.setState({
+			type: type,
+			title: type == 'text' ? 'Ta想对室友说的话' : 'Ta的问卷调查结果',
+			content: content,
+		})
+		//获取用户问卷结果
+		if(type == 'chart') {
+			let params1 = {
+				uid: content,
+			};
+			fetchRequest('/app/getAnswer', 'POST', params1).then(res => {
+				if(res == 'Error') {
+					console.log('userDetail getAnswer failed');
+				}
+				else {
+					console.log('userdetail res: ', res);
+					this.setState({
+						content: res,
+					})
+				}
+			})
+		}
+	}
+
 	_showContent(type) {
 		if(type == 'chart') {
 			return (
 				<View style={styles.contentWrap}>
-					<Chart selected={selected} />
+					<Chart score = {this.state.content} />
 				</View>
 			)
 		}
 		else {
+			let text = this.state.content ? this.state.content : 'Ta还没有添加想对室友说的话哦~';
+			let color = this.state.content ? '#444' : '#ccc';
+			let size = this.state.content ? 16 : 13;
 			return (
 				<View style={styles.contentWrap}>
-					<Text style={{ fontSize: 16, paddingBottom: 2*PadSide, }}>我喜欢你的眼睛 你的睫毛 你的冷傲 我喜欢你的酒窝 你的嘴角 你的微笑 我喜欢你全世界都知道</Text>
+					<Text style={{ fontSize: size, color: color, paddingBottom: 2*PadSide, }}>{text}</Text>
 				</View>
 			) 
 		}
 	}
 
 	render() {
-		let { params } = this.props.navigation.state;
-		let type = params ? params.type : null;
-		let title = type == 'text' ? 'Ta想对室友说的话' : 'Ta的问卷调查结果';
+		// let { params } = this.props.navigation.state;
+		// let type = params ? params.type : null;
+		// let title = type == 'text' ? 'Ta想对室友说的话' : 'Ta的问卷调查结果';
 
-		console.log("type is ", type);
+		// console.log("type is ", type);
 		return (
 			<View style={styles.container}>
 				<View style={styles.headerBar}>
 					<TouchableOpacity style={styles.headBackBtn} onPress={() => {this.props.navigation.goBack()} }>
 						<Icon name='ios-arrow-back-outline' size={22} />
 					</TouchableOpacity>
-					<Text style={{ fontSize: 16, }}>{title}</Text>
+					<Text style={{ fontSize: 16, }}>{this.state.title}</Text>
 					<View style={styles.headBackBtn} ></View>
 				</View>
-				{this._showContent(type)}
+				{this._showContent(this.state.type)}
 			</View>
 		)
 	}

@@ -1,7 +1,9 @@
 import React, { Component } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Image, FlatList, } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import fetchRequest from '../../config/request.js';
 
+let imgCom_url = 'http://192.168.253.1:8080/images';
 let Dimensions = require("Dimensions");
 let ScreenHeight = Dimensions.get('window').height;
 let ScreenWidth = Dimensions.get('window').width;
@@ -21,16 +23,16 @@ let imgWidth = 45;
 let footerHeight = 45;
 
 let chatList = [
-	{key: '0', userId: 3, avatar: '', userName: '知士', time: '20:45', isRead: false, message: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', img: null, },
-	{key: '1', userId: 6, avatar: '', userName: '小红', time: '20:34', isRead: true, message: '轰轰轰轰轰轰及激励窘境积极哦欧炯炯 李炯交警哦我机加酒噢诶过解放街32还有谁', img: ''},
-	{key: '2', userId: 4, avatar: '', userName: '小白', time: '20:45', isRead: false, message: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', img: null, },
-	{key: '3', userId: 9, avatar: '', userName: '小青蛙', time: '20:34', isRead: true, message: '还有谁', img: ''},
-	{key: '4', userId: 5, avatar: '', userName: '二狗子', time: '20:45', isRead: false, message: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', img: null, },
-	{key: '5', userId: 0, avatar: '', userName: '冬瓜瓜瓜瓜', time: '2018/01/23 20:34', isRead: true, message: '还有谁', img: ''},
-	{key: '6', userId: 1, avatar: '', userName: '哈哈哈', time: '2017/11/27 20:45', isRead: false, message: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', img: null, },
-	{key: '7', userId: 2, avatar: '', userName: '啦啦啦啦', time: '2017/11/23 20:34', isRead: true, message: '还有谁', img: ''},
-	{key: '8', userId: 1, avatar: '', userName: '哈哈哈', time: '2017/11/21 20:45', isRead: false, message: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', img: null, },
-	{key: '9', userId: 2, avatar: '', userName: '啦啦啦啦', time: '2017/01/23 20:34', isRead: true, message: '还有谁', img: ''},
+	// {key: '0', userId: 3, avatar: '', userName: '知士', time: '20:45', isRead: false, message: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', img: null, },
+	// {key: '1', userId: 6, avatar: '', userName: '小红', time: '20:34', isRead: true, message: '轰轰轰轰轰轰及激励窘境积极哦欧炯炯 李炯交警哦我机加酒噢诶过解放街32还有谁', img: ''},
+	// {key: '2', userId: 4, avatar: '', userName: '小白', time: '20:45', isRead: false, message: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', img: null, },
+	// {key: '3', userId: 9, avatar: '', userName: '小青蛙', time: '20:34', isRead: true, message: '还有谁', img: ''},
+	// {key: '4', userId: 5, avatar: '', userName: '二狗子', time: '20:45', isRead: false, message: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', img: null, },
+	// {key: '5', userId: 0, avatar: '', userName: '冬瓜瓜瓜瓜', time: '2018/01/23 20:34', isRead: true, message: '还有谁', img: ''},
+	// {key: '6', userId: 1, avatar: '', userName: '哈哈哈', time: '2017/11/27 20:45', isRead: false, message: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', img: null, },
+	// {key: '7', userId: 2, avatar: '', userName: '啦啦啦啦', time: '2017/11/23 20:34', isRead: true, message: '还有谁', img: ''},
+	// {key: '8', userId: 1, avatar: '', userName: '哈哈哈', time: '2017/11/21 20:45', isRead: false, message: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', img: null, },
+	// {key: '9', userId: 2, avatar: '', userName: '啦啦啦啦', time: '2017/01/23 20:34', isRead: true, message: '还有谁', img: ''},
 ];
 
 export default class ChatListScreen extends Component {
@@ -44,13 +46,39 @@ export default class ChatListScreen extends Component {
 		super(props);
 		this.state={
 			uid: null,
+			userInfo: null,
 			data: null,
 		}
 	}
 
 	componentDidMount() {
+		// this.props.navigation.navigate('DrawerOpen');
+		console.log('charlist uid: ', global.user.userData.uid);
+		this.getUserInfo(global.user.userData.uid);
+		// this.getInitData(global.user.userData.uid);
 		this.setState({
 			data: chatList,
+		})
+	}
+
+	getUserInfo(uid) { 
+		let param = {
+			uid: uid,
+		};
+		fetchRequest('/app/getUserInfo', 'POST', param).then(res => {
+			console.log('userinfo res: ', res);
+			//找到该用户
+			if(res && res.length != 0) {
+				let userData = {
+					name: res[0].name,
+					avatar: res[0].avatar,
+				};
+				userData.avatar = imgCom_url + userData.avatar;
+				console.log('userData: ', userData);
+				this.setState({
+					userInfo: userData,
+				})
+			}
 		})
 	}
 
@@ -63,12 +91,14 @@ export default class ChatListScreen extends Component {
 	}
 
 	render() {
+		let avatar = this.state.userInfo ? this.state.userInfo.avatar : null;
+		console.log('avatar: ', avatar);
 		return (
 			<View style={styles.container} >
 				<StatusBar opacity={0.2} />
 				<View style={styles.header}>	
 					<TouchableOpacity style={styles.headerButton} onPress={() => {this.props.navigation.navigate('DrawerOpen')}}>
-						<Image style={styles.avatar} source={require('../../../localResource/images/avatar1.jpg')} />
+						<Image style={styles.avatar} source={{uri: avatar}} />
 					</TouchableOpacity>
 					<Text style={styles.headerTitle}>消息</Text>
 					<TouchableOpacity style={styles.headerButton} activeOpacity={0.6} onPress={() => {this.props.navigation.navigate('Search')} }>

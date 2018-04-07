@@ -1,14 +1,22 @@
 var express = require('express');
 var mysql = require('mysql');
+var fs = require('fs');
 var cookieParser = require('cookie-parser');
 var session = require('express-session');
 var bodyParser = require('body-parser');
 var app = express();
 var crypto = require('crypto');
+//图片上传
+var formidable = require('formidable');
+// //主页面Tab路由
+// var main = require('./mainTab');
+// app.use('/app', main);
 
 // router.get('/app/signIn', function(req, res, next) )
 app.use(bodyParser.json());
 app.use(cookieParser('sessiontest'));
+app.use(express.static('public'));
+
 //跨域
 app.use('*', function (req, res, next) {
 	// res.header('Access-Control-Allow-Origin', '*');
@@ -56,7 +64,7 @@ app.post('/app/signIn', function(req, res) {
 	connection.query(sql, sqlParams, function(err, result) {
 		if(err) {
 			console.log('select err: ', err);
-			res.json('error in select');
+			res.json('Error');
 			return;
 		}
 		console.log('select result: ', result);
@@ -99,6 +107,18 @@ app.post('/app/signIn', function(req, res) {
 	})
 	// res.send('Hello World');
 });
+
+app.post('/app/logout', function (req, res, next) {
+	req.session.destroy(function(err) {
+		if(err) {
+			res.json('Error');
+			return;
+		}
+
+		res.clearCookie();
+		res.json('Success');
+	})
+})
 
 app.get('/app/check', function (req, res, next) {
 	// console.log('Welcome to /');
@@ -158,7 +178,8 @@ app.get('/app/answer', function(req, res) {
 	res.send('Hello');
 })
 
-app.post('/app/answer', function(req, res) {
+//将问卷结果插入数据库
+app.post('/app/answer', function(req, res, next) {
 	console.log('req.url: ', req.url);
 	console.log('req.body: ', req.body);
 	let uid = req.body.uid;
@@ -184,37 +205,404 @@ app.post('/app/answer', function(req, res) {
 		}
 		res.json('success');
 		console.log('insert success');
+		//计算该用户与其他所有已完成问卷的用户的Pearson相似度
+		next();
 	})
 	connection.end();
 
+}, function(req, res) {
+	console.log('insertAnsert next req.body: ', req.body);
+	let currentUser = req.body;
+	var connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sexSql = 'SELECT sex FROM user_info WHERE uid = ? ';
+	let sexSqlParam = currentUser.uid;
+	//获取当前用户性别
+	connection.query(sexSql, sexSqlParam, function(err, result1) {
+		if(err) {
+			console.log('corsex Err: ', sex);
+			res.json('Error');
+			return;
+		}
+		console.log('sex result: ', result1);
+		let sql = 'SELECT a.uid, a.results FROM ques_result a INNER JOIN user_info b ON a.uid = b.uid WHERE b.sex = ?';
+		let sqlParams = result1[0].sex;
+		//获取当前已完成问卷的所有同性问卷结果
+		connection.query(sql, sqlParams, function(err, result2) {
+			if(err) {
+				console.log('getOtherAnwer Error: ', err);
+				res.json('Error');
+				return;
+			}
+			let sum1 = 0;
+			let sum1Sq = 0;
+			//对当前用户所有偏好求和，平方和
+			currentUser.answer.map((value, key) => {
+				sum1 += value;
+				sum1Sq += Math.pow(value, 2);
+			})
+			console.log('sum1: ', sum1);
+			console.log('sum1Sq: ', sum1Sq);
+			let correlation = [];
+			//对这些用户进行相似度计算，并插入数据库
+			result2.map((value, key) => {
+				console.log('key: ', key, 'value: ', value);
+				//除去自身
+				if(value.uid != currentUser.uid) {
+					let score = JSON.parse(value.results);
+					console.log('score: ', score);
+					let temp1 = [];
+					let temp2 = [];
+					let sum2 = 0;
+					let sum2Sq = 0;
+					let pSum = 0;
+					let n = score.length;
+					temp1[0] = currentUser.uid;
+					temp1[1] = value.uid;
+					temp2[0] = value.uid;
+					temp2[1] = currentUser.uid;
+				
+					//对用户所有偏好求和，以及平方和
+					score.map((value, key) => {
+						sum2 += value;
+						sum2Sq += Math.pow(value, 2);
+					})
+					console.log('sum2: ', sum2);
+					console.log('sum2Sq: ', sum2Sq);
+					//求乘积之和
+					for(let i = 0; i < n; i++) {
+						pSum += score[i] * currentUser.answer[i];
+					} 
+					//计算Pearson相似度
+					let num = pSum - (sum1 * sum2 / n);
+					let den = Math.sqrt((sum1Sq - Math.pow(sum1, 2) / n)*(sum2Sq - Math.pow(sum2, 2)/n));
+					if(den == 0) {
+						temp1[2] = 0;
+						temp2[2] = 0;
+					}
+					else {
+						let r = num/den;
+						temp1[2] = r;
+						temp2[2] = r;
+					}
+					console.log('temp1: ', temp1);
+					console.log('temp2: ', temp2);
+					correlation.push(temp1);
+					correlation.push(temp2);
+				}
+			})
+			//将用户之间的相似度插入数据库
+			if(correlation.length > 0) {
+				let corSql = 'INSERT INTO user_correlation(current_uid, rec_uid, correlation) VALUES ?';
+				let corSqlParams = [correlation];
+				connection.query(corSql, corSqlParams, function(err, result) {
+					if(err) {
+						console.log('insert correlation error');
+						// res.json('Error');
+						return;
+					}
+					console.log('insert correlation: ', result.insertId);
+				})
+			}
+		})
+	})
+
 })
-// //返回问卷
-// app.get('/app/getQues', function (req, res, next) {
-// 	// console.log('')
-// 	var connection = mysql.createConnection({
-// 		host: 'localhost',
-// 		user: 'root',
-// 		password: 'lijinlong',
-// 		database: 'roommate'
-// 	});
-// 	connection.connect();
 
-// 	var titlesql = 'SELECT title FROM question';
-// 	connection.query(titlesql, function(err, result) {
-// 		if(err) {
-// 			console.log('err: ', err);
-// 			return;
-// 		}
-// 		console.log('result: ', result);
-// 		var choicesql = 'SELECT ques_id, choice FROM choices';
-// 	})
+//获取用户问卷调查结果
+app.post('/app/getAnswer', function(req, res) {
+	let uid = req.body.uid;
+	console.log('getAnswer uid: ', uid);
+	var connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
 
-// })
+	var sql = 'SELECT results FROM ques_result WHERE uid = ?';
+	var sqlParams = uid;
+	connection.query(sql, sqlParams, function(err, results) {
+		if(err) {
+			console.log('err: ', err);
+			res.json('error');
+			return;
+		}
+		console.log('getAnswer result: ', results);
+		results = JSON.parse(results[0].results);
+		console.log('getAnswer results: ', results);
+		res.json(results);
+		// console.log('insert success');
+	})
+	connection.end();
+})
+
+app.get('/app/getUserInfo', function(req, res) {
+	console.log('Hello user');
+});
+
+app.post('/app/getUserInfo', function(req, res) {
+	console.log('req.body: ', req.body);
+	let uid = req.body.uid;
+	var connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	var sql = 'SELECT name, avatar, labels, signature, sex FROM user_info WHERE uid=?';
+	var sqlParams = uid;
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('getuserInfo err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('getUserInfo result: ', result);
+		result[0].labels = JSON.parse(result[0].labels);
+		console.log('parsed result: ', result);
+		res.json(result);
+	})
+	connection.end();
+})
+
+app.post('/app/uploadImage', function(req, res) {
+	let domain = 'http://localhost:8080';
+	let AVATAR_UPLOAD_FOLDER = '/images/userAvatar/';
+	let form = new formidable.IncomingForm(); //创建上传表单
+	form.encoding = 'utf-8';
+	form.uploadDir = 'public' + AVATAR_UPLOAD_FOLDER;
+	form.keepExtension = true; //保留后缀
+
+	console.log('about to parse');
+	form.parse(req, function(err, fields, files) {
+		console.log('uploadImage req.session: ', req.session);
+		if(err) {
+			console.log('uploadImage err: ', err);
+			res.send('Error');
+			return;
+		}
+		
+		console.log('uploadImage files: ', files);
+		// console.log(files.upload.path);
+		let avatarName = `image${req.session.user.uid}.jpg`;
+		console.log('avatarName: ', avatarName);
+		let newPath = form.uploadDir + avatarName;
+		let showUrl = '/userAvatar/' + avatarName;
+		console.log('newPath: ', newPath);
+		fs.renameSync(files.files.path, newPath);
+		res.json({
+			'avatar': showUrl,
+		})
+		// fs.writeFileSync('public/images/test.png', fs.readFileSync(files.upload.path));
+		// res.redirect('/public/upload.html')
+	})
+})
+
+app.post('/app/modifyInfo', function(req, res) {
+	console.log('modifyInfo req.body: ', req.body);
+	let userInfo = req.body;
+	userInfo.labels = JSON.stringify(userInfo.labels);
+	let uid = req.session.user.uid;
+	console.log('modifyInfo uid: ', uid);
+
+	var connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	var sql = 'UPDATE user_info SET name=?, avatar=?, labels=?, signature=? WHERE uid=?';
+	var sqlParams = [userInfo.name, userInfo.avatar, userInfo.labels, userInfo.signature, uid];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('modify err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('modify result: ', result.affectedRows);
+		res.json(result);
+	})
+	connection.end();
+})
+
+//获取用户设置的打招呼问题
+app.post('/app/getSayHi', function (req, res) {
+	let uid = req.body.uid;
+	console.log('getSayHI uid: ', uid);
+
+	var connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	var sql = 'SELECT question from sayhi_ques WHERE uid=?';
+	var sqlParams = uid;
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('getSayHi err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('getSayHi result: ', result);
+		// let questions = [];
+		// result.map((value, key) => {
+		// 	let temp = {};
+		// 	temp.value = value;
+		// 	temp.key = key;
+		// 	questions.push(temp);
+		// })
+		// console.log('questions: ', questions);
+		res.json(result);
+	})
+	connection.end();
+})
+
+//插入用户设置的打招呼问题
+app.post('/app/setSayHi', function(req, res) {
+	console.log('setSayHi req.body: ', req.body);
+	let data = [];
+	let uid = req.body.uid;
+	let questions = req.body.questions;
+	questions.map((value, key) => {
+		let temp = [];
+		temp[0] = key;
+		temp[1] = uid;
+		temp[2] = value.question;
+		data.push(temp);
+	})
+
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'DELETE FROM sayhi_ques WHERE uid=?';
+	let sqlParams = uid;
+	//删除旧数据
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('deleteSayHi err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('deleteSayHi result: ', result.affectedRows);
+		console.log('insertparam: ', data);
+		let insertSql = 'INSERT INTO sayhi_ques(sid, uid, question) VALUES ?';
+		let insertSqlParams = [data];
+		//插入新数据
+		connection.query(insertSql, insertSqlParams, function(err, rows, fileds) {
+			if(err) {
+				console.log('sayhi insertErr: ', err);
+				res.json('Error');
+				return;
+			}
+
+			console.log('sayhi insert success');
+			res.json('Success');
+		})		
+		// res.json(result);
+	})
+	// connection.end();
+})
+
+app.post('/app/getRecData', function(req, res) {
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'SELECT question FROM sayhi_rec';
+	//获取推荐sayhi问题
+	connection.query(sql, function(err, result) {
+		if(err) {
+			console.log('getSayHiRec Err: ', err);
+			res.json('Error');
+			return;
+		}
+
+		console.log('sayhiRec: ', result);
+		res.send(result);
+	})		
+	connection.end();
+})
+
+app.post('/app/getRec', function(req, res) {
+	console.log('req.session.user: ', req.session.user);
+	let uid = req.session.user ? req.session.user.uid: null;
+
+	if(uid) {
+		var connection = mysql.createConnection({
+			host: 'localhost',
+			user: 'root',
+			password: 'lijinlong',
+			database: 'roommate'
+		});
+		connection.connect();
+
+		let sql = 'SELECT a.rec_uid, a.correlation, b.name, b.avatar FROM user_correlation a INNER JOIN  user_info b ON a.rec_uid = b.uid WHERE a.current_uid = ? ORDER BY correlation desc LIMIT 50';
+		let sqlParams = uid;
+		connection.query(sql, sqlParams, function(err, result) {
+			if(err) {
+				console.log('get reclist error: ', err);
+				res.json('Error');
+				return;
+			}
+			console.log('get reclist success');
+			res.json(result);
+		})
+	}
+})
+
+app.post('/app/friCheck', function(req, res) {
+	let current_uid = req.body.current_uid;
+	let fri_uid = req.body.fri_uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'SELECT * FROM friends WHERE current_uid = ? AND fri_id = ? ';
+	let sqlParams = [current_uid, fri_uid];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('friCheck err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('friCheck result: ', result);
+		res.json(result);
+	})
+	connection.end();
+})
 
 var server = app.listen(8080, '0.0.0.0', function() {
 	console.log('server.address(): ', server.address());
 	var host = server.address().address;
 	var port = server.address().port;
 
-	console.log('Example app listening at htp://%s:%s', host, port);
+	console.log('Example app listening at http://%s:%s', host, port);
 });

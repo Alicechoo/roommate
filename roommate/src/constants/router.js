@@ -1,8 +1,10 @@
 import React, { Component } from 'react';
-import { View, Text, Button, ScrollView, StyleSheet, ImageBackground, Image, TouchableOpacity, NavigationActions, } from 'react-native';
+import { View, Text, Button, ScrollView, StyleSheet, ImageBackground, Image, TouchableOpacity, StatusBar,} from 'react-native';
 import { StackNavigator, DrawerNavigator, TabNavigator, TabBarBottom, addNavigationHelpers } from 'react-navigation';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { DrawerItems, SafeAreaView } from 'react-navigation';
+import { NavigationActions } from 'react-navigation';
+import fetchRequest from '../config/request.js';
 
 import ChatListScreen from '../container/TabMain/chatList.js';
 import RecListScreen from '../container/TabMain/recList.js';
@@ -33,6 +35,84 @@ import CommentScreen from '../container/momentStack/comment.js';
 
 let MainColor = '#fce23f'; //主色调
 let DeepColor = '#f7d451';
+
+let imgCom_url = 'http://192.168.253.1:8080/images';
+// let userInfo = {};
+
+class ReadyScreen extends Component {
+	static navigationOptions = {
+		header: null,
+	};
+
+	componentDidMount() {
+		let resetAction = [];
+		//检测用户登录状态
+		fetchRequest('/app/check', 'GET').then(res => {
+			console.log('res: ', res);
+			//登录状态未过期
+			if(res.uid !== undefined) {
+				global.user.loginState = true;
+				global.user.userData = res;
+				console.log('global.user.userData: ', global.user.userData);
+				let param = {
+					uid: global.user.userData.uid,
+				};
+				console.log('route param: ', param);
+				//登录态未过期且完成问卷，跳转到主页
+				if(global.user.userData.finished) {
+					resetAction = NavigationActions.reset({
+						index: 0,
+						actions: [NavigationActions.navigate({ routeName: 'Main' })],
+					});
+				}
+				//用户未完成跳转到问卷
+				else {
+					resetAction = NavigationActions.reset({
+						index: 0,
+						actions: [NavigationActions.navigate({ routeName: 'QuizConfirm' })],
+					});			
+				}
+				this.props.navigation.dispatch(resetAction);
+				// fetchRequest('/app/getUserInfo', 'POST', param).then(res => {
+				// 	console.log('userinfo res: ', res);
+				// 	//找到该用户
+				// 	if(res && res.length != 0) {
+				// 		userInfo = {
+				// 			name: res[0].name,
+				// 			avatar: res[0].avatar,
+				// 			signature: res[0].signature,
+				// 		};
+				// 		userInfo.avatar = imgCom_url + userInfo.avatar;
+				// 		userInfo.signature = userInfo.signature ? userInfo.signature : 'TA什么都没留下哦~';
+				// 		console.log('userInfo: ', userInfo);
+				// 		// global.user.userInfo = userInfo;
+				// 	}
+				// })
+			}
+			//登录状态过期
+			else {
+				global.user.loginState = false;
+				global.user.userData = null;
+				global.user.userInfo = null;
+				console.log('global.user: ', global.user);
+				resetAction = NavigationActions.reset({
+					index: 0,
+					actions: [NavigationActions.navigate({ routeName: 'Login' })],
+				});
+				this.props.navigation.dispatch(resetAction);
+			}
+		})
+	}
+
+	render() {
+		return (
+			<View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+				<StatusBar backgroundColor={'#000'} barStyle='dark-content'/>
+				<Text>正在加载...</Text>
+			</View>
+		)
+	}
+}
 
 //Tab页面
 const MainTab = TabNavigator({
@@ -93,6 +173,17 @@ const MainTab = TabNavigator({
 	animationEnabled: false,
 });
 
+//用户注销
+function _onLogOut() {
+	fetchRequest('/app/logout', 'POST').then(res => {
+		if(res == 'Error') {
+			console.log('logout failed');
+			return;
+		}
+		console.log('logout success');
+	})
+}
+
 const MainDraw = DrawerNavigator({
 	MainTab: {
 		screen: MainTab,
@@ -135,24 +226,27 @@ const MainDraw = DrawerNavigator({
 			<ScrollView>
 				<SafeAreaView forceInset={{ top: 'always', horizontal: 'never' }}>
 					<ImageBackground source={require('../../localResource/images/bgLemon.jpg')} style={styles.header}>
-						<Image source={require('../../localResource/images/avatar1.jpg')} style={styles.avatar} />
-						<View style={styles.headerRight}>
-							<Text>西瓜瓜瓜</Text>
-							<Text numberOfLines={1} style={{ fontSize: 14, }}>我想说的是哈hi我hi二纺机时代峰峻我快速减肥IE</Text>
-						</View>
 					</ImageBackground>
 					<DrawerItems {...props} />
 					<TouchableOpacity 
 						style={styles.footer} 
 						activeOpacity={0.6}
 						onPress={() => {
+							fetchRequest('/app/logout', 'POST').then(res => {
+								if(res == 'Error') {
+									console.log('logout failed');
+									return;
+								}
+								console.log('logout success');
+							})
+						}
 							// const resetAction = NavigationActions.reset({
 							// 	index: 0,
 							// 	actions: [NavigationActions.navigate({ routeName: 'Login'})],
 							// });
-							console.log('this in drawer: ', this);
-							this.props.navigation.dispatch(resetAction)
-						}}
+							// console.log('this in drawer: ', this);
+							// this.props.navigation.dispatch(resetAction)
+						}
 					>
 						<Text>退出登录</Text>
 					</TouchableOpacity>
@@ -213,10 +307,13 @@ const AppNavigator = StackNavigator({
 	},
 	Search: {
 		screen: SearchScreen,
+	},
+	Ready: {
+		screen: ReadyScreen,
 	}
 },
 {
-	initialRouteName: 'Login', //调试主界面
+	initialRouteName: 'Ready', //调试主界面
 	navigationOptions: {
 		headerStyle: {
 			backgroundColor: '#f4511e',
@@ -244,10 +341,11 @@ const styles = StyleSheet.create({
 	header: {
 		flex: 1,
 		height: 150,
-		flexDirection: 'row',
+		// flexDirection: 'row',
+		justifyContent: 'center',
 		alignItems: 'center',
-		paddingLeft: 8,
-		paddingRight: 8,
+		// paddingLeft: 8,
+		// paddingRight: 8,
 	},
 	avatar: {
 		width: 72,
