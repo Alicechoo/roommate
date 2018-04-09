@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Image, } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Image, DeviceEventEmitter, } from 'react-native';
 
 let Dimensions = require('Dimensions');
 let ScreenWidth = Dimensions.get('window').width;
@@ -47,13 +47,17 @@ export default class ModalView extends Component {
 		});
 	}
 
-	_onConfirm = () => {
-		this.props.onConfirm();
+	_onConfirm = (that) => {
+		console.log('this.props.onConfirm: ', this.props.onConfirm);
+		this.props.onConfirm(this.props.params);
+		that.props.navigation.goBack();
 		console.log("delete complete");
 		this._onClose();
 	}
 
 	render() {
+		let params = this.props.params;
+		let that = this.props.parentRef;
 		return (
 			<Modal visible={this.state.modalVisible}
 					animationType={'fade'}
@@ -75,7 +79,7 @@ export default class ModalView extends Component {
 								<Text>{this.props.buttonLeft}</Text>
 							</TouchableOpacity>
 							<View style={styles.verLine}></View>
-							<TouchableOpacity style={styles.Button} activeOpacity={0.5} onPress={() => this._onConfirm()}>
+							<TouchableOpacity style={styles.Button} activeOpacity={0.5} onPress={() => this._onConfirm(that)}>
 								<Text style={{ color: DeepColor }}>{this.props.buttonRight}</Text>
 							</TouchableOpacity>
 						</View>

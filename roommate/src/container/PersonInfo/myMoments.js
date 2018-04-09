@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { View, Text, Image, Dimensions, StyleSheet, TouchableOpacity, FlatList, } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { MomentItem } from '../TabMain/momentShow.js';
+import fetchRequest from '../../config/request.js';
 
 let ScreenWidth = Dimensions.get('window').width;
 let ScreenHeight = Dimensions.get('window').height;
@@ -26,8 +27,38 @@ export default class MyMomentScreen extends Component {
 	constructor(props) {
 		super(props);
 		this.state = {
-			uid: 0,
+			uid: null,
+			data: null,
 		};
+	}
+
+	componentDidMount() {
+		this.getData();
+	}
+
+	getData() {
+		let params = {
+			uid: global.user.userData.uid,
+		};
+		console.log('getMyMoment params: ', params);
+		fetchRequest('/app/getSelfMom', 'POST', params).then(res => {
+			if(res == 'Error') {
+				console.log('getSelfMom	error');
+			}
+			else {
+				console.log('getSelfMom	res: ', res);
+				res.map((value, key) => {
+					value.key = key;
+				})
+				this.setState({
+					uid: params.uid,
+					data: res,
+				})
+			}
+		})
+		.catch(err => {
+			console.log('getSelfMom	err: ', err);
+		})
 	}
 
 	_onFooter() {
@@ -49,7 +80,7 @@ export default class MyMomentScreen extends Component {
 					<View style={styles.headerButton}></View>					
 				</View>
 				<View style={styles.main}>
-					<FlatList data={data} 
+					<FlatList data={this.state.data} 
 						renderItem={({item}) => <MomentItem item={item} uid={this.state.uid} parentRef={this} />}
 						style={styles.list}
 						contentContainerStyle={{paddingBottom: 88 }}

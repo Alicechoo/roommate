@@ -388,7 +388,7 @@ app.post('/app/uploadImage', function(req, res) {
 		console.log('uploadImage req.session: ', req.session);
 		if(err) {
 			console.log('uploadImage err: ', err);
-			res.send('Error');
+			res.json('Error');
 			return;
 		}
 		
@@ -542,7 +542,7 @@ app.post('/app/getRecData', function(req, res) {
 		}
 
 		console.log('sayhiRec: ', result);
-		res.send(result);
+		res.json(result);
 	})		
 	connection.end();
 })
@@ -574,6 +574,7 @@ app.post('/app/getRec', function(req, res) {
 	}
 })
 
+//查看用户双方是否为好友
 app.post('/app/friCheck', function(req, res) {
 	let current_uid = req.body.current_uid;
 	let fri_uid = req.body.fri_uid;
@@ -597,6 +598,403 @@ app.post('/app/friCheck', function(req, res) {
 		res.json(result);
 	})
 	connection.end();
+})
+
+//添加动态
+app.post('/app/addMoment', function(req, res) {
+	console.log('addMoment req.body: ', req.body);
+	let uid = req.body.uid;
+	let content = req.body.content;
+	// let date = req.body.date;
+
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'INSERT INTO moment(mem_id, uid, content, time) VALUES (null, ?, ?, null)';
+	let sqlParams = [uid, content];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('addMoment err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('addMoment success');
+		res.json('Success');
+	})
+	connection.end();
+})
+
+//获取动态
+app.post('/app/getMoment', function(req, res) {
+	console.log('req.body: ', req.body);
+	let uid = req.body.uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sexSql = 'SELECT sex FROM user_info WHERE uid = ? ';
+	let sexSqlParam = uid;
+	//获取当前用户性别
+	connection.query(sexSql, sexSqlParam, function(err, result1) {
+		if(err) {
+			console.log('corsex Err: ', sex);
+			res.json('Error');
+			return;
+		}
+		console.log('sex result: ', result1);
+		let sql = 'SELECT b.name, b.avatar, DATE_FORMAT(a.time, "%Y-%m-%d %H:%i:%s") as time, a.content, a.mem_id, a.uid FROM moment a LEFT JOIN user_info b ON a.uid = b.uid WHERE b.sex = ? ORDER BY time desc';
+		let sqlParams = result1[0].sex;
+		//获取所有同性用户所发的动态并按时间排序
+		connection.query(sql, sqlParams, function(err, result2) {
+			if(err) {
+				console.log('getMoment err: ', err);
+				res.json('Error');
+				return;
+			}
+			console.log('getMoment result: ', result2);
+			let likeSql = 'SELECT * FROM thumb WHERE uid = ?';
+			let likeSqlParams = uid;
+			connection.query(likeSql, likeSqlParams, function(err, result3) {
+				if(err) {
+					console.log('getlike err: ', err);
+					res.json('Error');
+					return;
+				}
+				console.log('getThumb result: ', result3);
+				for(let i = 0; i < result2.length; i++) {
+					result2[i].liked = false;
+					for(let j = 0; j < result3.length; j++) {
+						if(result2[i].mem_id == result3[j].mem_id) {
+							result2[i].liked = true;
+							break;
+						}
+					}
+				}
+				console.log('result2: ', result2);
+				res.json(result2);
+			})
+			
+		})
+	})
+})
+
+//获取个人动态
+app.post('/app/getSelfMom', function(req, res) {
+	console.log('getSelfMom	req.body: ', req.body);
+	let uid = req.body.uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'SELECT b.name, b.avatar, DATE_FORMAT(a.time, "%Y-%m-%d %H:%i:%s") as time, a.content, a.mem_id, a.uid FROM moment a LEFT JOIN user_info b ON a.uid = b.uid WHERE a.uid = ? ORDER BY time desc';
+	let sqlParams = uid;
+	//获取该用户所有动态并按时间排序
+	connection.query(sql, sqlParams, function(err, result1) {
+		if(err) {
+			console.log('getSelfMom err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('getMoment result: ', result1);
+		let likeSql = 'SELECT * FROM thumb WHERE uid = ?';
+		let likeSqlParams = uid;
+		connection.query(likeSql, likeSqlParams, function(err, result2) {
+			if(err) {
+				console.log('getlike err: ', err);
+				res.json('Error');
+				return;
+			}
+			console.log('getThumb result: ', result2);
+			for(let i = 0; i < result1.length; i++) {
+				result1[i].liked = false;
+				for(let j = 0; j < result2.length; j++) {
+					if(result1[i].mem_id == result2[j].mem_id) {
+						result1[i].liked = true;
+						break;
+					}
+				}
+			}
+			console.log('result1: ', result1);
+			res.json(result1);
+		})
+	})
+	// connection.end();
+})
+
+//用户删除动态
+app.post('/app/delMoment', function(req, res, next) {
+	console.log('delMoment req.body: ', req.body);
+	let mem_id = req.body.mem_id;
+
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();	
+	let sql = 'DELETE FROM moment WHERE mem_id = ?';
+	let sqlParams = mem_id;
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('delMoment err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('delMoment success');
+		res.json('Success');
+		next();
+	})
+	connection.end();
+}, function(req, res) {
+	let mem_id = req.body.mem_id;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();	
+	let comSql = 'DELETE FROM comment WHERE mem_id = ?';
+	let comSqlParams = mem_id;
+	connection.query(comSql, comSqlParams, function(err, result) {
+		if(err) {
+			console.log('delComment err: ', err);
+			// res.json('Error');
+			return;
+		}
+		console.log('delComment success');
+		let likeSql = 'DELETE FROM thumb WHERE mem_id = ?';
+		let likeSqlParams = mem_id;
+		connection.query(likeSql, likeSqlParams, function(err, result1) {
+			if(err) {
+				console.log('delThumb err: ', err);
+				// res.json('Error');
+				return;
+			}
+			console.log('delThumb success');
+		})
+		// res.json('Success');
+	})
+	// connection.end();
+})
+//用户点赞
+app.post('/app/setLike', function(req, res) {
+	console.log('setLike req.body: ', req.body);
+	let uid = req.body.uid;
+	let mem_id = req.body.mem_id;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	var sql = 'INSERT INTO thumb(uid, mem_id) VALUES (?, ?)';
+	var sqlParams = [uid, mem_id];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('setLike err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('setLike success');
+		res.json('Success');
+	})
+	connection.end();
+})
+
+//用户取消点赞
+app.post('/app/setUnlike', function(req, res) {
+	console.log('setUnlike req.body: ', req.body);
+	let uid = req.body.uid;
+	let mem_id = req.body.mem_id;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'DELETE FROM thumb WHERE uid = ? AND mem_id = ?';
+	let sqlParams = [uid, mem_id];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('setUnlike err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('setUnlike success');
+		res.json('Success');
+	})
+	connection.end();
+})
+//添加评论
+app.post('/app/addComment', function(req, res) {
+	console.log('addComment req.body: ', req.body);
+	let uid = req.body.uid;
+	let mem_id = req.body.mem_id;
+	let content = req.body.content;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'INSERT INTO comment(mem_id, uid, time, content, com_id) VALUES (?, ?, null, ?, null)';
+	let sqlParams = [mem_id, uid, content];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('addComment err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('addComment success');
+		res.json('Success');
+	})
+	connection.end();
+})
+
+//获取评论
+app.post('/app/getComment', function(req, res) {
+	console.log('getComment req.body: ', req.body);
+	let mem_id = req.body.mem_id;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'SELECT b.uid, b.name, b.avatar, DATE_FORMAT(a.time, "%Y-%m-%d %H:%i") as time, a.content FROM comment a INNER JOIN user_info b ON a.uid = b.uid WHERE a.mem_id = ? ORDER BY time desc';
+	let sqlParams = mem_id;
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('getComment err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('getComment result: ', result);
+		res.json(result);
+	})
+	connection.end();
+})
+
+//获取两用户之间的评分
+app.post('/app/getCor', function(req, res) {
+	console.log('getCor req.body: ', req.body);
+	let current_uid	 = req.body.current_uid;
+	let rec_uid = req.body.rec_uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'SELECT * FROM user_correlation WHERE current_uid	= ? AND rec_uid = ?';
+	let sqlParams = [current_uid, rec_uid];
+	connection.query(sql, sqlParams	, function(err, result) {
+		if(err) {
+			console.log('getCor err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('getCor result: ', result);
+		res.json(result);
+	})
+	connection.end();
+})
+
+//搜索用户
+app.post('/app/searchUser', function(req, res) {
+	console.log('searchUser req.body: ', req.body);
+	let uid = req.body.uid;
+	let name = req.body.name;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'SELECT uid, name, avatar FROM user_info WHERE name = ?';
+	let sqlParams = name;
+	connection.query(sql, sqlParams	, function(err, result) {
+		if(err) {
+			console.log('searchUser err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('searchUser result: ', result);
+		//该用户不存在
+		if(result && result.length == 0) {
+			res.json(result);
+			return;
+		}
+		// result.map((value, key) => {
+		let corSql = 'SELECT correlation FROM user_correlation WHERE current_uid = ? AND rec_uid = ?';
+		let corSqlParams = [uid, result[0].uid];
+		connection.query(corSql, corSqlParams, function(err, result1) {
+			if(err) {
+				console.log('search correlation failed');
+				res.json('Error');
+				return;
+			}
+			console.log('search correlation result1: ', result1);
+			//搜索用户尚未完成问卷
+			if(result1.length == 0) {
+				result[0].correlation = 'empty';
+				result[0].isFriend = false;
+				res.json(result);
+				return;
+			}
+			
+			result[0].correlation = result1[0].correlation;
+
+			let friSql = 'SELECT * FROM friends WHERE current_uid = ? AND fri_id = ?';
+			let friSqlParams = [uid, result[0].uid];
+			connection.query(friSql, friSqlParams, function(err, result2) {
+				if(err) {
+					console.log('search friends failed');
+					res.json('Error');
+					return;
+				}
+				console.log('sarch friends result2: ', result2);
+				//两用户为好友关系
+				if(result2 && result2.length != 0) {
+					result[0].isFriend = true;
+				}
+				else {
+					result[0].isFriend = false;
+				}
+				console.log('result: ', result);		
+				res.json(result);
+			})
+			
+		})
+	})
+	// connection.end();
 })
 
 var server = app.listen(8080, '0.0.0.0', function() {

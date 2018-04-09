@@ -32,12 +32,13 @@ CREATE TABLE `ques_result` (
 );
 
 -- 话题相关
-CREATE TABLE `mement` (
+CREATE TABLE `moment` (
 	`mem_id` int(11) NOT NULL AUTO_INCREMENT,
 	`uid` int(11) NOT NULL,
 	`content` text NOT NULL,
-	PRIMARY KEY(`mem_id`)
-);
+	`date` date,
+	PRIMARY KEY(`mem_id`, `uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE `comment` (
 	`mem_id` int(11) NOT NULL,

@@ -102,20 +102,29 @@ export default class UserInfoScreen extends Component {
 	}
 
 	_showStars(num) {
-		let stars = [];
-		num = Math.ceil(Math.round(num*10)/2)
-		console.log("star num is ", num);
-		if(num > 0) {
-			for(let i = 0; i < num; i++) {
-				stars.push(
-					<Icon name='md-star' key={i} color={MainColor} size={18} />
+		//相似度存在时
+		if(num != 'empty') {
+			let stars = [];
+			num = Math.ceil(Math.round(num*10)/2)
+			console.log("star num is ", num);
+			if(num > 0) {
+				for(let i = 0; i < num; i++) {
+					stars.push(
+						<Icon name='md-star' key={i} color={MainColor} size={18} />
+					)
+				}
+				return stars;
+			}
+			else {
+				return (
+					<Icon name='md-star' color={'#ccc'} size={18} />
 				)
 			}
-			return stars;
 		}
+		//某一方用户尚未完成问卷，不存在相似度
 		else {
 			return (
-				<Icon name='md-star' color={'#ccc'} size={18} />
+				<Text style={{ fontSize: 12, color: '#ccc', }}>该用户尚未完成的问卷</Text>
 			)
 		}
 	}

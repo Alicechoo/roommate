@@ -1,10 +1,16 @@
 import React, { Component } from 'react';
-import { View, Text, TextInput, StyleSheet, Keyboard, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Keyboard, TouchableOpacity, Image, Modal, DeviceEventEmitter } from 'react-native';
 import Icon from 'react-native-vector-icons/EvilIcons';
+import fetchRequest from '../../config/request.js';
 
 let Dimensions = require("Dimensions");
 let ScreenHeight = Dimensions.get('window').height;
 let ScreenWidth = Dimensions.get('window').width;
+
+let modalWidth = ScreenWidth - 80;
+let modalHeight = 160;
+let modalBtnWidth = 64;
+let modalBtnHeight = 28;
 
 let PadSideMain = 15;
 let HeaderHeight = 48; //顶部栏高度
@@ -26,46 +32,99 @@ export default class EditMoment extends Component {
 		header: null,
 	};
 
+	constructor(props) {
+		super(props);
+		this.state = {
+			text: null,
+			modalVisible: false,
+		};
+	}
+
 	_onSendMoment() {
 		Keyboard.dismiss();
-		this.props.navigation.goBack();
+		if(this.state.text) {
+			let params = {
+				uid: global.user.userData.uid,
+				content: this.state.text,
+				// date: new Date();
+			}
+			//将发送的动态插入数据库
+			fetchRequest('/app/addMoment', 'POST', params).then(res => {
+				if(res == 'Error') {
+					console.log('addMoment Error');
+				}
+				else {
+					console.log('addMoment res: ', res);
+					DeviceEventEmitter.emit('getNewMoment');
+				}
+			})
+			.catch(err => {
+				console.log('addMoment Error');
+			})
+			this.props.navigation.goBack();
+		}
+		else {
+			this.setState({
+				modalVisible: true,
+			})
+		}
+	}
+
+	_onClose() {
+		this.setState({
+			modalVisible: false,
+		})
 	}
 		
 	render() {
 		return (
-			<View style={styles.container}>
-				<View style={styles.header}>	
-					<TouchableOpacity style={styles.headerButton} onPress={() => { Keyboard.dismiss(); this.props.navigation.goBack();} }>
-						<Icon name='chevron-left' size={35} />
+			<View>
+				<Modal 
+					animationType={"fade"}
+					transparent={true}
+					visible={this.state.modalVisible}
+					onRequestClose={() => {}}
+				>
+					<TouchableOpacity style={styles.bgModal} onPress={ () => this._onClose() }>
+						<View style={styles.modalWrap}>
+							<View style={styles.placehold}></View>
+							<Text style={{ fontSize: 15 }}>话题内容不能为空</Text>
+							<TouchableOpacity style={styles.modalBtn} onPress={ () => {this._onClose();} }>
+								<Text>确定</Text>
+							</TouchableOpacity>
+						</View>
 					</TouchableOpacity>
-					<Text style={styles.headerTitle}>编辑话题</Text>
-					<TouchableOpacity style={[styles.headerButton, {backgroundColor: MainColor, }, ]} activeOpacity={0.7} onPress={() => this._onSendMoment()} >
-						<Text>发送</Text>
-					</TouchableOpacity>
-				</View>
-				<View style={styles.inputWrap} >
-					<View style={styles.textInputWrap}>
-						<TextInput placeholder='此刻的想法...'
-							multiline={true}  
-							autoFocus={true} 
-							underlineColorAndroid='transparent' 
-							maxLength={142}
-						>
-						</TextInput>
-					</View>
-					<View style={styles.ImageWrap}>
-						<View style={{ width: ImageWidth, height: ImageHeight, borderWidth: 1, }}></View>
-					</View>
-				</View>
-				<View style={styles.selectBar}>
-					<View style={styles.iconWrap} >
-						<TouchableOpacity>
-							<Icon name='camera' size={35} style={styles.icon} />
+				</Modal>
+				<View style={styles.container}>
+					<View style={styles.header}>	
+						<TouchableOpacity style={styles.headerButton} onPress={() => { Keyboard.dismiss(); this.props.navigation.goBack();} }>
+							<Icon name='chevron-left' size={35} />
 						</TouchableOpacity>
-						<TouchableOpacity>
-							<Icon name='image' size={35} style={styles.icon} />
+						<Text style={styles.headerTitle}>编辑话题</Text>
+						<TouchableOpacity style={[styles.headerButton, {backgroundColor: MainColor, }, ]} activeOpacity={0.7} onPress={() => this._onSendMoment()} >
+							<Text>发送</Text>
 						</TouchableOpacity>
 					</View>
+					<View style={styles.inputWrap} >
+						<View style={styles.textInputWrap}>
+							<TextInput placeholder='此刻的想法...'
+								multiline={true}  
+								autoFocus={true} 
+								underlineColorAndroid='transparent' 
+								maxLength={142}
+								onChangeText={(text) => {
+									this.setState({
+										text: text,
+									})
+								}}
+							>
+							</TextInput>
+						</View>
+						<View style={styles.ImageWrap}>
+							<View style={{ width: ImageWidth, height: ImageHeight, borderWidth: 1, }}></View>
+						</View>
+					</View>
+					
 				</View>
 			</View>
 		)
@@ -73,6 +132,37 @@ export default class EditMoment extends Component {
 }
 
 const styles = StyleSheet.create({
+	bgModal: {
+		flex: 1,
+		backgroundColor: 'rgba(0, 0, 0, 0.6)',
+		justifyContent: 'center',
+		alignItems: 'center',
+		paddingBottom: 88,
+	},
+	modalWrap: {
+		width: modalWidth,
+		height: modalHeight,
+		justifyContent: 'space-around',
+		alignItems: 'center',
+		borderWidth: 0.3,
+		borderColor: '#ccc',
+		borderRadius: 10,
+		backgroundColor: 'white',
+		paddingLeft: PadSide,
+		paddingRight: PadSide,
+	},
+	//布局占位
+	placehold: {
+		height: 1, 
+	},
+	modalBtn: {
+		width: modalBtnWidth,
+		height: modalBtnHeight,
+		backgroundColor: MainColor,
+		justifyContent: 'center',
+		alignItems: 'center',
+		borderRadius: 5,
+	},
 	container: {
 		flex: 1,
 	},

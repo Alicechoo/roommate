@@ -1,8 +1,10 @@
 import React, { Component, PureComponent } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Keyboard, FlatList, Image, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Keyboard, FlatList, Image, ScrollView, DeviceEventEmitter } from 'react-native';
 import Icon from 'react-native-vector-icons/EvilIcons';
 import ModalView from '../../helpers/ModalView.js';
+import fetchRequest from '../../config/request.js';
 
+let imgCom_url = 'http://192.168.253.1:8080/images';
 let Dimensions = require("Dimensions");
 let ScreenHeight = Dimensions.get('window').height;
 let ScreenWidth = Dimensions.get('window').width;
@@ -41,7 +43,11 @@ export default class CommentScreen extends PureComponent {
 	constructor(props) {
 		super(props);
 		this.state = {
+			ready: false,
+			status: null,
 			data: null,
+			mem_id: null,
+
 			modalVisible: false,
 			commentValue: null,
 		}
@@ -50,37 +56,69 @@ export default class CommentScreen extends PureComponent {
 	componentDidMount() {
 		const { params } = this.props.navigation.state;
 		const item = params ? params.item : null;
-		const id = item ? item.id : null;
-
-		console.log("getInitialData return ", this.getInitialData(1));
+		let mem_id = item ? item.mem_id : null;
 		this.setState({
-			data: this.getInitialData(1),
+			mem_id: mem_id,
 		})
+		console.log('request mem_id: ', mem_id);
+		this.getInitialData(mem_id);	
 	}
 
-	getInitialData(id) {
-		return [
-			{key: '0', userId: 0, avatar: '', userName: '西西西西瓜', time: '2017/11/27 20:45', comment: '我是评论我是评论我是评论' }, 
-			{key: '1', userId: 1, avatar: '', userName: '冬瓜瓜瓜瓜', time: '2018/01/23 20:34', comment: '红红火火恍恍惚惚红红火火恍恍惚惚红红火火恍恍惚惚红红火火恍恍惚惚红红火火恍恍惚惚'},
-			{key: '2', userId: 0, avatar: '', userName: '西西西西瓜', time: '2017/11/27 20:45', comment: '我是评论我是评论我是评论', },
-			{key: '3', userId: 1, avatar: '', userName: '冬瓜瓜瓜瓜', time: '2018/01/23 20:34', comment: '还有谁', },
-			{key: '4', userId: 0, avatar: '', userName: '西西西西瓜', time: '2017/11/27 20:45', comment: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', },
-			{key: '5', userId: 1, avatar: '', userName: '冬瓜瓜瓜瓜', time: '2018/01/23 20:34', comment: '还有谁', },
-			{key: '6', userId: 0, avatar: '', userName: '西西西西瓜', time: '2017/11/27 20:45', comment: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', },
-			{key: '7', userId: 1, avatar: '', userName: '冬瓜瓜瓜瓜', time: '2018/01/23 20:34', comment: '还有谁', },
-		];
+
+	getInitialData(mem_id) {
+		//获取该条动态的所有评论
+		if(mem_id) {
+			let params = {
+				mem_id: mem_id,
+			};
+			fetchRequest('/app/getComment', 'POST', params).then(res => {
+				if(res == 'Error') {
+					console.log('getComment err');
+					this.setState({
+						status: 'failed',
+					})
+				}
+				else {
+					console.log('getComment res: ',res);
+					res.map((value, key) => {
+						value.key = key;
+					})
+					this.setState({
+						status: 'success',
+						ready: true,
+						data: res,
+					})
+				}
+			})
+			.catch(err => {
+				console.log('getComment err: ', err);
+				this.setState({
+					status: 'failed',
+				})
+			})
+		}
+		// return [
+			// {key: '0', userId: 0, avatar: '', userName: '西西西西瓜', time: '2017/11/27 20:45', comment: '我是评论我是评论我是评论' }, 
+			// {key: '1', userId: 1, avatar: '', userName: '冬瓜瓜瓜瓜', time: '2018/01/23 20:34', comment: '红红火火恍恍惚惚红红火火恍恍惚惚红红火火恍恍惚惚红红火火恍恍惚惚红红火火恍恍惚惚'},
+			// {key: '2', userId: 0, avatar: '', userName: '西西西西瓜', time: '2017/11/27 20:45', comment: '我是评论我是评论我是评论', },
+			// {key: '3', userId: 1, avatar: '', userName: '冬瓜瓜瓜瓜', time: '2018/01/23 20:34', comment: '还有谁', },
+			// {key: '4', userId: 0, avatar: '', userName: '西西西西瓜', time: '2017/11/27 20:45', comment: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', },
+			// {key: '5', userId: 1, avatar: '', userName: '冬瓜瓜瓜瓜', time: '2018/01/23 20:34', comment: '还有谁', },
+			// {key: '6', userId: 0, avatar: '', userName: '西西西西瓜', time: '2017/11/27 20:45', comment: '破碎的奇迹，好过没有。苦恼的希望，胜于迷惘。', },
+			// {key: '7', userId: 1, avatar: '', userName: '冬瓜瓜瓜瓜', time: '2018/01/23 20:34', comment: '还有谁', },
+		// ];
 	}
 
-	listHeader(userName, time, content, uid, userId) {
+	listHeader(name, time, content, avatar, uid, userId) {
 		return (
 			<View>
 				<View style={styles.TopicWrap}>
 					<View style={styles.userInfoWrap}>
-						<TouchableOpacity activeOpacity={0.6}>
-							<Image style={styles.avatar} source={require('../../../localResource/images/avatar1.jpg')} />
+						<TouchableOpacity activeOpacity={0.6} onPress={() => {console.log('pressed'); this.props.navigation.navigate('UserInfo', {uid: uid})}}>
+							<Image style={styles.avatar} source={{ uri: imgCom_url + avatar }} />
 						</TouchableOpacity>
 						<View style={styles.middleWrap}>
-							<Text style={{ fontSize: 15 }}>{userName}</Text>
+							<Text style={{ fontSize: 15 }}>{name}</Text>
 							<Text style={{ fontSize: 12 }}>{time}</Text>
 						</View>
 						{this._showTrash(uid, userId, this)}
@@ -97,12 +135,28 @@ export default class CommentScreen extends PureComponent {
 	}
 
 	listFooter() {
+		let text = '';
+		let color = '#ccc';
+		//获取数据失败
+		if(this.state.status == 'failed') {
+			text = '获取数据失败';
+			color = 'red';
+		}
+		else if(this.state.ready) {
+			console.log('this.state.data: ', this.state.data);
+			console.log('this.state.data.length: ', this.state.data.length);
+			text = this.state.data.length == 0 ? '还没有人评论哦~' : '没有其他评论了哦~';
+		}
+		else {
+			text = '正在加载...';
+		}
 		return (
 			<View style={styles.listFooter}>
-				<Text style={{ fontSize: 13, color: '#ccc' }} >没有其他评论了哦~</Text>
+				<Text style={{ fontSize: 13, color: color }} >{text}</Text>
 			</View>
 		)
 	}
+
 	_showList() {
 		return (
 			<View></View>
@@ -110,13 +164,13 @@ export default class CommentScreen extends PureComponent {
 	}
 
 	_showTrash(currentUser, userId, that) {
-		// console.log("that is ", that);
+		// Todo: delete from db
 		if(currentUser == userId)
 			return (
 				<TouchableOpacity 
 					style={styles.delWrap} 
 					activeOpacity={0.6} 
-					onPress={() => { console.log("press del"); that.setState({ modalVisible: true,}); console.log("that is ", that); }} 
+					onPress={() => {that.setState({ modalVisible: true,}); }} 
 				> 
 					<Icon name="trash" size={28} />
 				</TouchableOpacity>
@@ -125,16 +179,50 @@ export default class CommentScreen extends PureComponent {
 			return null;
 	}
 
-	_onDel() {
+	_onDel(mem_id) {
+		//删除动态
 		console.log('del success');
+		let params = {
+			mem_id: mem_id,
+		};
+		fetchRequest('/app/delMoment', 'POST', params).then(res => {
+			if(res == 'Error') {
+				console.log('delMoment err');
+			}
+			else {
+				console.log('delMoment success');
+				DeviceEventEmitter.emit('getNewMoment');
+			}
+		})
+		.catch(err => {
+			console.log('delMoment err: ', err);
+		})
 	}
 
-	_onSubmit() {
-		console.log("this.state.commentValue is ", this.state.commentValue); 
-		this.setState({
-			commentValue: null,
+	_onSubmit(content) {
+		// console.log("this.state.commentValue is ", this.state.commentValue); 
+		let params = {
+			mem_id: this.state.mem_id,
+			content: content,
+			uid: global.user.userData.uid,
+		};
+		console.log('addComment params: ', params);
+		fetchRequest('/app/addComment', 'POST', params).then(res => {
+			if(res == 'Error') {
+				console.log('addComment Error');
+			}
+			else {
+				console.log('addComment success');
+				this.setState({
+					commentValue: null,
+				})
+				Keyboard.dismiss();
+				this.getInitialData(this.state.mem_id);
+			}
 		})
-		Keyboard.dismiss();
+		.catch(err => {
+			console.log('addComment err: ', err);
+		})
 	}
 
 	render() {
@@ -142,16 +230,19 @@ export default class CommentScreen extends PureComponent {
 		const item = params ? params.item : null;
 		const uid = params ? params.uid : null;
 
-		let userName = item ? item.userName : null;
+		let name = item ? item.name : null;
 		let time = item ? item.time : null;
 		let content = item ? item.content : null;
-		let userId = item ? item.userId : null;
+		let userId = item ? item.uid : null;
+		let avatar = item ? item.avatar : null;
+		let mem_id = item ? item.mem_id : null;
+		// let uid = global.user.userData.uid;
 
 		// console.log("item is ", item);
 		console.log("this.state.data is ", this.state.data);
 		return (
 			<View style={styles.mainContainer}>
-				<ModalView title='删除确认' content='确定删除这条动态吗' buttonLeft='取消' buttonRight='删除' onConfirm={this._onDel} modalVisible={this.state.modalVisible} />
+				<ModalView title='删除确认' content='确定删除这条动态吗' buttonLeft='取消' buttonRight='删除' onConfirm={this._onDel} params={mem_id} parentRef={this} modalVisible={this.state.modalVisible} />
 				<View style={styles.container}>
 					<View style={styles.header}>
 						<TouchableOpacity style={styles.headerButton} onPress={() => { Keyboard.dismiss(); this.props.navigation.goBack();} }>
@@ -164,9 +255,9 @@ export default class CommentScreen extends PureComponent {
 					<ScrollView style={styles.main}>
 						<FlatList 
 							data={ this.state.data }
-							ListHeaderComponent={this.listHeader(userName, time, content, uid, userId)}
+							ListHeaderComponent={this.listHeader(name, time, content, avatar, uid, userId)}
 							ListFooterComponent={this.listFooter()} 
-							renderItem={ ({item}) => <CommentItem item={item} uid={uid}  /> }
+							renderItem={ ({item}) => <CommentItem item={item} uid={uid} parentRef={this}/> }
 							contentContainerStyle={{paddingBottom: 8 }}
 						/>
 					</ScrollView>
@@ -187,7 +278,7 @@ export default class CommentScreen extends PureComponent {
 						<TouchableOpacity 
 							style={styles.footerRight} 
 							activeOpacity={0.6}
-							onPress={() => this._onSubmit()}
+							onPress={() => this._onSubmit(this.state.commentValue)}
 						>
 							<Text>发送</Text>
 						</TouchableOpacity>
@@ -199,22 +290,48 @@ export default class CommentScreen extends PureComponent {
 }
 
 class CommentItem extends Component {
+	
+	_onOpenUserInfo(userId, uid, that) {
+		console.log('navigate UserInfo userId: ', userId, 'uid: ', uid);
+		//点击本人头像不跳转
+		if(userId != uid) {
+			let params = {
+				current_uid: uid,
+				rec_uid: userId,
+			}
+			fetchRequest('/app/getCor', 'POST', params).then(res => {
+				if(res == 'Error') {
+					console.log('getCor error');
+				}
+				else {
+					console.log('getCor res: ', res);
+					that.props.navigation.navigate('UserInfo', {uid: userId, correlation: res[0].correlation});
+				}
+			})
+			.catch(err => {
+				console.log('getCor err: ', err);
+			})
+		}
+	}
+
 	render() {
 		let item = this.props.item;
+		let uid = this.props.uid;
+		let that = this.props.parentRef;
 
 		return (
 			<View style={styles.TopicWrap}>
 				<View style={[styles.userInfoWrap, { height: 45 }] }>
-					<TouchableOpacity activeOpacity={0.6}>
-						<Image style={[styles.avatar, { width: 32, height: 32}] } source={require('../../../localResource/images/avatar1.jpg')} />
+					<TouchableOpacity activeOpacity={0.6} onPress={() => this._onOpenUserInfo(item.uid, uid, that)}>
+						<Image style={[styles.avatar, { width: 32, height: 32}] } source={{ uri: imgCom_url + item.avatar}} />
 					</TouchableOpacity>
 					<View style={[styles.middleWrap, { height: 32}] }>
-						<Text style={{ fontSize: 12 }}>{item.userName}</Text>
+						<Text style={{ fontSize: 12 }}>{item.name}</Text>
 						<Text style={{ fontSize: 10 }}>{item.time}</Text>
 					</View>
 				</View>
 				<View style={styles.commentWrap}>
-					<Text style={{ fontSize: 13, color: '#666', }} >{item.comment}</Text>
+					<Text style={{ fontSize: 13, color: '#666', }} >{item.content}</Text>
 				</View>
 			</View>
 		)

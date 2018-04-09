@@ -1,7 +1,9 @@
 import React, { Component } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView, FlatList, Image, Keyboard, TextInput } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import fetchRequest from '../../config/request.js';
 
+let imgCom_url = 'http://192.168.253.1:8080/images';
 let ScreenHeight = Dimensions.get('window').height;
 let ScreenWidth = Dimensions.get('window').width;
 
@@ -17,18 +19,18 @@ let PadSide = 12;
 let MainColor = '#fce23f'; //主色调
 let DeepColor = '#f7d451';
 
-let data = [
-	{key: '0', userId: 3, avatar: '', isFriend: true, userName: '知士', },
-	{key: '1', userId: 6, avatar: '', isFriend: false, userName: '小红', },
-	{key: '2', userId: 4, avatar: '', isFriend: true, userName: '小红', },
-	{key: '3', userId: 9, avatar: '', isFriend: false, userName: '小青蛙', },
-	{key: '4', userId: 5, avatar: '', isFriend: true, userName: '二狗子', },
-	{key: '5', userId: 0, avatar: '', isFriend: true, userName: '冬瓜瓜瓜瓜', },
-	{key: '6', userId: 1, avatar: '', isFriend: false, userName: '哈哈哈',  },
-	{key: '7', userId: 2, avatar: '', isFriend: false, userName: '啦啦啦啦', },
-	{key: '8', userId: 1, avatar: '', isFriend: false, userName: '哈哈哈', },
-	{key: '9', userId: 2, avatar: '', isFriend: false, userName: '啦啦啦啦', },
-];
+// let data = [
+// 	{key: '0', userId: 3, avatar: '', isFriend: true, userName: '知士', },
+// 	{key: '1', userId: 6, avatar: '', isFriend: false, userName: '小红', },
+// 	{key: '2', userId: 4, avatar: '', isFriend: true, userName: '小红', },
+// 	{key: '3', userId: 9, avatar: '', isFriend: false, userName: '小青蛙', },
+// 	{key: '4', userId: 5, avatar: '', isFriend: true, userName: '二狗子', },
+// 	{key: '5', userId: 0, avatar: '', isFriend: true, userName: '冬瓜瓜瓜瓜', },
+// 	{key: '6', userId: 1, avatar: '', isFriend: false, userName: '哈哈哈',  },
+// 	{key: '7', userId: 2, avatar: '', isFriend: false, userName: '啦啦啦啦', },
+// 	{key: '8', userId: 1, avatar: '', isFriend: false, userName: '哈哈哈', },
+// 	{key: '9', userId: 2, avatar: '', isFriend: false, userName: '啦啦啦啦', },
+// ];
 
 export default class SearchScreen extends Component {
 	static navigationOptions = {
@@ -39,33 +41,58 @@ export default class SearchScreen extends Component {
 		super(props);
 		this.state={
 			searchContent: null,
-			searchResult: null,
 			searchFinished: false,
+			searchResult: null,
 		}
 	}
 	
 	_onSearch() {
 		Keyboard.dismiss();
-		console.log('this.state.searchContent is ', this.state.searchContent);
-		let result = [];
-		data.map( (item, key) => {
-			if(item.userName == this.state.searchContent) {
-				// console.log('key is ', key);
-				result.push(item);
-			}
-		})
-		if(result.length != 0) {
-			this.setState({
-				searchResult: result,
+		//输入内容不为空时，进行搜索
+		let params = {
+			uid: global.user.userData.uid,
+			name: this.state.searchContent,
+		}
+		if(this.state.searchContent) {
+			fetchRequest('/app/searchUser', 'POST', params).then(res => {
+				if(res == 'Error') {
+					console.log('searchUser error');
+				}
+				else {
+					console.log('searchUser res: ', res);
+					res.map((value, key) => {
+						value.key = key;
+					})
+					this.setState({
+						searchFinished: true,
+						searchResult: res,
+					})
+				}
+			})
+			.catch(err => {
+				console.log('searchUser err: ',err);
 			})
 		}
-		else
-			this.setState({
-				searchResult: null,
-			})
-		this.setState({
-			searchFinished: true,
-		})
+		// console.log('this.state.searchContent is ', this.state.searchContent);
+		// let result = [];
+		// data.map( (item, key) => {
+		// 	if(item.userName == this.state.searchContent) {
+		// 		// console.log('key is ', key);
+		// 		result.push(item);
+		// 	}
+		// })
+		// if(result.length != 0) {
+		// 	this.setState({
+		// 		searchResult: result,
+		// 	})
+		// }
+		// else
+		// 	this.setState({
+		// 		searchResult: null,
+		// 	})
+		// this.setState({
+		// 	searchFinished: true,
+		// })
 	}
 
 	_showResult() {
@@ -73,59 +100,67 @@ export default class SearchScreen extends Component {
 		this._showUsers();
 	}
 
-	_showFriends() {
-		console.log('searchResult is ', this.state.searchResult);
-		let resultFri = [];
-		let result = this.state.searchResult;
-		if(result) {
-			result.map( (item, wrap) => {
-				if(item.isFriend)
-					resultFri.push(item);
-			})
-			console.log('resultFri is ', resultFri);
-			if(resultFri) {
-				console.log('_showFriends is true');
-				return (
-					<SearchSection title='我的好友' data={resultFri} />	
-				);
-			}
-			else {
-				console.log('_showFriends is false ');
-				return null;
-			}
+	_showFriends(finished, result) {
+		console.log('searchResult is ', result);
+		// let resultFri = [];
+		// let result = this.state.searchResult;
+		if(finished && result[0] && result[0].isFriend) {
+			return (
+				<SearchSection title='我的好友' data={result} parentRef={this} />	
+			);
+			// result.map( (item, wrap) => {
+			// 	if(item.isFriend)
+			// 		resultFri.push(item);
+			// })
+			// console.log('resultFri is ', resultFri);
+			// if(resultFri) {
+			// 	console.log('_showFriends is true');
+			// 	return (
+			// 		<SearchSection title='我的好友' data={resultFri} />	
+			// 	);
+			// }
+			// else {
+			// 	console.log('_showFriends is false ');
+			// 	return null;
+			// }
 		}
 		else
 			return null;
 	}
 
-	_showUsers() {
-		let resultNew = [];
-		let result = this.state.searchResult;
-		if(result) {
-			result.map( (item, key) => {
-				if(!item.isFriend)
-					resultNew.push(item);
-			})
-			console.log('resultNew is ', resultNew);
-			if(resultNew) 
-				return (
-					<SearchSection title='其他用户' data={resultNew} />	
-				)
-			else
-				return null;
+	_showUsers(finished, result) {
+		if(finished && result[0] && !result[0].isFriend) {
+			return (
+				<SearchSection title='其他用户' data={result} parentRef={this} />	
+			)
 		}
+		// let resultNew = [];
+		// let result = this.state.searchResult;
+		// if(result) {
+		// 	result.map( (item, key) => {
+		// 		if(!item.isFriend)
+		// 			resultNew.push(item);
+		// 	})
+		// 	console.log('resultNew is ', resultNew);
+		// 	if(resultNew) 
+		// 		return (
+		// 			<SearchSection title='其他用户' data={resultNew} />	
+		// 		)
+		// 	else
+		// 		return null;
+		// }
 		else
 			return null;
 	}
 
-	_noResult() {
+	_noResult(result, content, finished) {
 		console.log('There is no searchResult');
-		if(this.state.searchContent && this.state.searchFinished) {
+		if(finished) {
 			console.log('noResult return');
-			if(!this.state.searchResult)
+			if(result && result.length == 0)
 				return (
 					<View style={styles.noneWrap}>
-						<Text>暂无" <Text style={{ color: DeepColor, }}>{this.state.searchContent}</Text> "相关内容</Text>
+						<Text>暂无" <Text style={{ color: DeepColor, }}>{content}</Text> "相关内容</Text>
 					</View>
 				)
 		}
@@ -142,6 +177,8 @@ export default class SearchScreen extends Component {
 						<Icon name="ios-search" size={21} />
 						<TextInput 
 							autoFocus={true}
+							placeholder={'输入用户名...'}
+							returnKeyType='done'
 							underlineColorAndroid="transparent" 
 							style={{ flex: 1, height: HeaderHeight, }}
 							onChangeText={ (text) => {this.setState({ searchContent: text, })} } 
@@ -152,9 +189,9 @@ export default class SearchScreen extends Component {
 					</TouchableOpacity>
 				</View>
 				<ScrollView style={styles.main}>
-					{this._showFriends()}
-					{this._showUsers()}
-					{this._noResult()}
+					{this._showFriends(this.state.searchFinished, this.state.searchResult)}
+					{this._showUsers(this.state.searchFinished, this.state.searchResult)}
+					{this._noResult(this.state.searchResult, this.state.searchContent, this.state.searchFinished)}
 				</ScrollView>
 			</View>
 		)
@@ -167,6 +204,7 @@ class SearchSection extends Component {
 
 	render() {
 		console.log("this.props.data is ", this.props.data);
+		let that = this.props.parentRef;
 		return (
 			<View style={styles.sectionWrap}>
 				<View style={styles.sectionTitle}>
@@ -175,7 +213,7 @@ class SearchSection extends Component {
 				<FlatList 
 					data={this.props.data}
 					keyExtractor={this._keyExtractor} 
-					renderItem={ ({item, index}) => <ListItem item={item} index={index} len={this.props.data.length}/> }
+					renderItem={ ({item, index}) => <ListItem item={item} index={index} len={this.props.data.length} that={that}/> }
 				/>
 			</View>
 		)
@@ -184,19 +222,25 @@ class SearchSection extends Component {
 
 class ListItem extends Component {
 	render() {
+		let that = this.props.that;
 		let item = this.props.item;
 		let index = this.props.index;
 		let length = this.props.len;
 		let avatar = item ? item.avatar : null;
-		let userName = item ? item.userName : null; 
+		let name = item ? item.name : null; 
+		let userId = item ? item.uid : null;
+		let correlation = item ? item.correlation : null;
 		console.log('item index is ', this.props.index); 
 		let borderBottomWidth = index == length-1 ? 0 : 0.3;
 
 		return (
-			<View style={[styles.itemWrap, {borderBottomWidth: borderBottomWidth,} ]}>
-				<Image style={styles.avatar} source={require('../../../localResource/images/avatar2.jpg')} />
-				<Text>{userName}</Text>
-			</View>
+			<TouchableOpacity style={[styles.itemWrap, {borderBottomWidth: borderBottomWidth,} ]} 
+				activeOpacity={0.6} 
+				onPress={() => that.props.navigation.navigate('UserInfo', {uid: userId, correlation: correlation})}
+			>
+				<Image style={styles.avatar} source={{uri: imgCom_url + avatar}} />
+				<Text>{name}</Text>
+			</TouchableOpacity>
 		)
 	}
 }
