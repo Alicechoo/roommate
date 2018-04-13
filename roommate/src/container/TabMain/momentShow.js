@@ -248,6 +248,17 @@ export class MomentItem extends PureComponent {
 			})
 		}
 	}
+
+	_showPicture(picture) {
+		if(picture) {
+			return (
+				<Image style={{ width: ScreenWidth - 3*PadSide, height: 220 }} source={{ uri: imgCom_url + picture}} />
+			)
+		}
+		else {
+			return null;
+		}
+	}
 	render() {
 		let that = this.props.parentRef;
 		let item = this.props.item;
@@ -256,6 +267,7 @@ export class MomentItem extends PureComponent {
 
 		let uid = this.props.uid;
 		let mem_id = item.mem_id;
+		let picture = item.picture;
 		console.log('mem_id: ', mem_id);
 		let heartColor = this.state.isliked ? 'red' : '#666';
 		
@@ -274,6 +286,7 @@ export class MomentItem extends PureComponent {
 				</View>
 				<View style={styles.contentWrap}>
 					<Text>{item.content}</Text>
+					{this._showPicture(picture)}
 				</View>
 				<View style={styles.bottomWrap}>
 					<TouchableOpacity style={styles.button} activeOpacity={1} onPress={() => {that.props.navigation.navigate('Comment', { item: item, uid: uid,});}} >

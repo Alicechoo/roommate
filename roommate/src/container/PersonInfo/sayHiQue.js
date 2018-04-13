@@ -253,6 +253,7 @@ export default class SayHiQueScreen extends Component {
 		fetchRequest('/app/setSayHi', 'POST', params).then(res => {
 			if(res != 'Error') {
 				console.log('set sayhi success');
+				this.props.navigation.navigate('DrawerOpen');
 			}
 			else 
 				console.log('set sayhi fail');

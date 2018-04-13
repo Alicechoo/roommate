@@ -1,7 +1,10 @@
 import React, { Component } from 'react';
 import { View, Text, TextInput, StyleSheet, Keyboard, TouchableOpacity, Image, Modal, DeviceEventEmitter } from 'react-native';
-import Icon from 'react-native-vector-icons/EvilIcons';
+import Icon from 'react-native-vector-icons/Ionicons';
 import fetchRequest from '../../config/request.js';
+
+var ImagePicker = require('react-native-image-picker');
+let imgCom_url = 'http://192.168.253.1:8080/images';
 
 let Dimensions = require("Dimensions");
 let ScreenHeight = Dimensions.get('window').height;
@@ -27,6 +30,20 @@ let ImageHeight = 64;
 let MainColor = '#fce23f'; //主色调
 let DeepColor = '#f7d451';
 
+let options = {
+	title: '选择图片',
+	cancelButtonTitle: '取消',
+	takePhotoButtonTitle: '拍照',
+	chooseFromLibraryButtonTitle: '从相册中选择',
+	// customButtons: [
+	// 	{name: 'fb', title: 'Choose Photo from Facebook'},
+	// ],
+	storageOptions: {
+		skipBackup: true,
+		path: 'images'
+	}
+};
+
 export default class EditMoment extends Component {
 	static navigationOptions = {
 		header: null,
@@ -37,31 +54,78 @@ export default class EditMoment extends Component {
 		this.state = {
 			text: null,
 			modalVisible: false,
+			picture: null,
 		};
 	}
 
 	_onSendMoment() {
 		Keyboard.dismiss();
-		if(this.state.text) {
-			let params = {
-				uid: global.user.userData.uid,
-				content: this.state.text,
-				// date: new Date();
+		if(this.state.text || this.state.picture) {
+			//动态中含有图片，需要上传图片
+			if(this.state.picture) {
+				let formData = new FormData();
+				let file = {uri: this.state.picture, type: 'multiPart/form-data', name: 'image.jpg'};
+
+				formData.append('files', file);
+				//上传图片
+				fetch('http://192.168.253.1:8080/app/uploadPic', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'multipart/form-data',
+					},
+					body: formData,
+				}).then( (response) => response.json())
+				.then((responseData) => {
+					console.log('responseData: ', responseData);
+					//上传图片成功
+					if(responseData != 'Error') {
+						let params = {
+							uid: global.user.userData.uid,
+							content: this.state.text,
+							picture: responseData.picture,
+							// date: new Date();
+						}
+						//将发送的动态插入数据库
+						fetchRequest('/app/addMoment', 'POST', params).then(res => {
+							if(res == 'Error') {
+								console.log('addMoment Error');
+							}
+							else {
+								console.log('addMoment res: ', res);
+								DeviceEventEmitter.emit('getNewMoment');
+							}
+						})
+						.catch(err => {
+							console.log('addMoment Error');
+						})
+						this.props.navigation.goBack();
+					}
+						
+				})
 			}
-			//将发送的动态插入数据库
-			fetchRequest('/app/addMoment', 'POST', params).then(res => {
-				if(res == 'Error') {
+			//动态中不含图片，无须上传图片
+			else {
+				let params = {
+					uid: global.user.userData.uid,
+					content: this.state.text,
+					picture: this.state.picture,
+					// date: new Date();
+				}
+				//将发送的动态插入数据库
+				fetchRequest('/app/addMoment', 'POST', params).then(res => {
+					if(res == 'Error') {
+						console.log('addMoment Error');
+					}
+					else {
+						console.log('addMoment res: ', res);
+						DeviceEventEmitter.emit('getNewMoment');
+					}
+				})
+				.catch(err => {
 					console.log('addMoment Error');
-				}
-				else {
-					console.log('addMoment res: ', res);
-					DeviceEventEmitter.emit('getNewMoment');
-				}
-			})
-			.catch(err => {
-				console.log('addMoment Error');
-			})
-			this.props.navigation.goBack();
+				})
+				this.props.navigation.goBack();
+			}
 		}
 		else {
 			this.setState({
@@ -76,6 +140,44 @@ export default class EditMoment extends Component {
 		})
 	}
 		
+	_onAddPic() {
+		Keyboard.dismiss();
+		ImagePicker.showImagePicker(options, (response) => {
+			console.log('Response: ', response);
+
+			if (response.didCancel) {
+				console.log('User cancelled image picker');
+			}
+			else if (response.error) {
+				console.log('ImagePicker Error: ', response.error);
+			}
+			else if (response.customButton) {
+				console.log('User tapped custom button: ', response.customButton);
+			}
+			else {
+				// let source = { uri: response.uri };
+				this.setState({
+					picture: response.uri,
+				});
+			}
+		});
+	}
+
+	_showPic(picture) {
+		if(picture) {
+			return (
+				<Image style={styles.pic} source={{uri: picture}} />
+			)
+		}
+		else {
+			return (
+				<TouchableOpacity style={styles.addPic} onPress={() => this._onAddPic()}>
+					<Icon name='ios-add' size={44} />
+				</TouchableOpacity>
+			)
+		}
+	}
+
 	render() {
 		return (
 			<View>
@@ -98,7 +200,7 @@ export default class EditMoment extends Component {
 				<View style={styles.container}>
 					<View style={styles.header}>	
 						<TouchableOpacity style={styles.headerButton} onPress={() => { Keyboard.dismiss(); this.props.navigation.goBack();} }>
-							<Icon name='chevron-left' size={35} />
+							<Icon name='ios-arrow-back' size={22} />
 						</TouchableOpacity>
 						<Text style={styles.headerTitle}>编辑话题</Text>
 						<TouchableOpacity style={[styles.headerButton, {backgroundColor: MainColor, }, ]} activeOpacity={0.7} onPress={() => this._onSendMoment()} >
@@ -121,7 +223,7 @@ export default class EditMoment extends Component {
 							</TextInput>
 						</View>
 						<View style={styles.ImageWrap}>
-							<View style={{ width: ImageWidth, height: ImageHeight, borderWidth: 1, }}></View>
+							{this._showPic(this.state.picture)}
 						</View>
 					</View>
 					
@@ -201,6 +303,7 @@ const styles = StyleSheet.create({
 		height: TextInputHeight,
 	},
 	ImageWrap: {
+		flexDirection: 'row',
 		position: 'absolute',
 		bottom: 2*ContentMargin,
 		left: PadSideMain,
@@ -218,6 +321,17 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-around',
-	}
-
+	},
+	addPic: { 
+		width: ImageWidth, 
+		height: ImageHeight, 
+		borderWidth: 1, 
+		borderColor: '#ccc', 
+		alignItems: 'center', 
+		justifyContent: 'center'
+	},
+	pic: {
+		width: ImageWidth, 
+		height: ImageHeight, 
+	},
 })

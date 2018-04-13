@@ -48,11 +48,20 @@ export default class ModalView extends Component {
 	}
 
 	_onConfirm = (that) => {
-		console.log('this.props.onConfirm: ', this.props.onConfirm);
-		this.props.onConfirm(this.props.params);
-		that.props.navigation.goBack();
-		console.log("delete complete");
-		this._onClose();
+		if(that) {
+			console.log('this.props.onConfirm: ', this.props.onConfirm);
+			this.props.onConfirm(this.props.params);
+			that.props.navigation.goBack();
+			console.log("delete complete");
+			this._onClose();
+		}
+		else {
+			let params = this.props.params;
+			console.log('params: ', params);
+			console.log('this.props.onConfirm: ', this.props.onConfirm);
+			this.props.onConfirm(params.rid, params.members, params.that);
+			this._onClose();
+		}		
 	}
 
 	render() {

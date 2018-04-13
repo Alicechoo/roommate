@@ -68,7 +68,26 @@ export default class MyMomentScreen extends Component {
 			</View>
 		)
 	}
-	
+	_showMoment(data) {
+		if(data && data.length > 0) {
+			return (
+				<FlatList data={this.state.data} 
+					renderItem={({item}) => <MomentItem item={item} uid={this.state.uid} parentRef={this} />}
+					style={styles.list}
+					contentContainerStyle={{paddingBottom: 88 }}
+					ListFooterComponent={this._onFooter}
+				/>
+			)
+		}
+		else {
+			return (
+				<View style={{flex: 1, width: ScreenWidth, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white', paddingBottom: 88}}>
+					<Text>您目前还没有发表任何动态哦~</Text>
+				</View>
+			)
+		}
+	}
+
 	render() {
 		return (
 			<View style={styles.container}>
@@ -80,12 +99,7 @@ export default class MyMomentScreen extends Component {
 					<View style={styles.headerButton}></View>					
 				</View>
 				<View style={styles.main}>
-					<FlatList data={this.state.data} 
-						renderItem={({item}) => <MomentItem item={item} uid={this.state.uid} parentRef={this} />}
-						style={styles.list}
-						contentContainerStyle={{paddingBottom: 88 }}
-						ListFooterComponent={this._onFooter}
-					/>
+					{this._showMoment(this.state.data)}
 				</View>
 			</View>
 		)

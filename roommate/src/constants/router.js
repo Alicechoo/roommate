@@ -17,6 +17,7 @@ import MyMomentScreen from '../container/PersonInfo/myMoments.js';
 import RoomScreen from '../container/PersonInfo/myRoom.js';
 import PersonChartScreen from '../container/PersonInfo/personChart.js';
 import SayHiQueScreen from '../container/PersonInfo/sayHiQue.js';
+import LogOutScreen from '../container/PersonInfo/logOut.js';
 
 //First LoginIn
 import LoginScreen from '../container/login.js';
@@ -33,6 +34,8 @@ import SearchScreen from '../container/chatStack/searchScreen.js';
 import EditMomentScreen from '../container/momentStack/editMoment.js';
 import CommentScreen from '../container/momentStack/comment.js';
 
+import '../config/UserAgent';
+import io from 'socket.io-client/dist/socket.io.js';
 let MainColor = '#fce23f'; //主色调
 let DeepColor = '#f7d451';
 
@@ -51,8 +54,14 @@ class ReadyScreen extends Component {
 			console.log('res: ', res);
 			//登录状态未过期
 			if(res.uid !== undefined) {
+				//设置用户的socket
+				this.socket = io('http://192.168.253.1:8080', {jsonp: false});
+				// this.socket.connect();
+				console.log('this.socket: ', this.socket);	
 				global.user.loginState = true;
 				global.user.userData = res;
+				global.user.userSocket = this.socket;
+				global.user.userSocket.emit('join', {uid: global.user.userData.uid});
 				console.log('global.user.userData: ', global.user.userData);
 				let param = {
 					uid: global.user.userData.uid,
@@ -203,14 +212,14 @@ const MainDraw = DrawerNavigator({
 	SayHiQue: {
 		screen: SayHiQueScreen,
 	},
-	// Login: {
-	// 	screen: LoginScreen,
-	// },
+	LogOut: {
+		screen: LogOutScreen,
+	},
 }, {
 	drawerOpenRoute: 'DrawerOpen',
 	drawerCloseRoute: 'DrawerClose',
 	drawerToggleRoute: 'DrawerToggle',
-	order: ['Self', 'SayHiQue', 'PersonChart', 'MyMoment', 'MyRoom', 'MainTab'],
+	order: ['Self', 'SayHiQue', 'PersonChart', 'MyMoment', 'MyRoom', 'LogOut', 'MainTab'],
 	initialRouteName: 'MainTab', 
 	contentOptions: {
 		activeTintColor: DeepColor,
@@ -228,28 +237,6 @@ const MainDraw = DrawerNavigator({
 					<ImageBackground source={require('../../localResource/images/bgLemon.jpg')} style={styles.header}>
 					</ImageBackground>
 					<DrawerItems {...props} />
-					<TouchableOpacity 
-						style={styles.footer} 
-						activeOpacity={0.6}
-						onPress={() => {
-							fetchRequest('/app/logout', 'POST').then(res => {
-								if(res == 'Error') {
-									console.log('logout failed');
-									return;
-								}
-								console.log('logout success');
-							})
-						}
-							// const resetAction = NavigationActions.reset({
-							// 	index: 0,
-							// 	actions: [NavigationActions.navigate({ routeName: 'Login'})],
-							// });
-							// console.log('this in drawer: ', this);
-							// this.props.navigation.dispatch(resetAction)
-						}
-					>
-						<Text>退出登录</Text>
-					</TouchableOpacity>
 				</SafeAreaView>
 			</ScrollView>
 		)

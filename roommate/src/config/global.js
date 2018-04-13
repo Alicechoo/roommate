@@ -3,6 +3,7 @@
 global.user = {
 	loginState: null,
 	userData: null,
+	userSocket: null,
 };
 
 function getUid(store) {

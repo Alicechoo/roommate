@@ -3,6 +3,8 @@ import { View, Text, TextInput, Button, TouchableOpacity, StyleSheet, Image, Sta
 import { NavigationActions } from 'react-navigation';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import fetchRequest from '../config/request.js';
+import '../config/UserAgent';
+import io from 'socket.io-client/dist/socket.io.js';
 
 // import storage from '../config/storageUtil.js';
 import '../config/global.js';
@@ -66,7 +68,7 @@ export default class LoginScreen extends Component {
 
 	_onRequest() {
 		console.log('pressed');
-		fetchRequest('/', 'GET').then(res => {
+		fetchRequest('/app/signIn', 'GET').then(res => {
 			console.log('res quesCon: ', res);
 		})
 	}
@@ -107,6 +109,11 @@ export default class LoginScreen extends Component {
 						expires: 1000 * 3600 * 24 * 14,
 					})
 					console.log('storage inLogin: ', global.storage);
+					//设置用户的socket
+					this.socket = io('http://192.168.253.1:8080', {jsonp: false});
+					// this.socket.connect();
+					console.log('this.socket: ', this.socket);	
+					global.user.userSocket = this.socket;
 					//修改global中的登录状态
 					global.user.loginState = true;
 					global.user.userData = {
@@ -114,6 +121,7 @@ export default class LoginScreen extends Component {
 							uid: res[0].uid,
 							finished: res[0].finished,
 					};
+					global.user.userSocket.emit('join', {uid: global.user.userData.uid});
 					// global.getUid(global.storage);
 					console.log('global.user', global.user);
 					// global.getUid

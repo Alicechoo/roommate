@@ -1,7 +1,9 @@
 import React, { Component } from 'react';
-import { View, Text, StyleSheet, Animated, Easing, ImageBackground, ScrollView, Image, StatusBar, TextInput, TouchableOpacity, FlatList, SectionList, } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing, ImageBackground, ScrollView, Image, StatusBar, TextInput, TouchableOpacity, FlatList, SectionList, DeviceEventEmitter} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import fetchRequest from '../../config/request.js';
 
+let imgCom_url = 'http://192.168.253.1:8080/images';
 let Dimensions = require('Dimensions');
 let ScreenWidth = Dimensions.get('window').width;
 let ScreenHeight = Dimensions.get('window').height;
@@ -71,6 +73,41 @@ export default class FriendScreen extends Component {
 		super(props);
 		this.state = {
 			tabShow: 'friends',
+			userInfo: null,
+			ready: false,
+		}
+	}
+
+	componentDidMount() {
+		//获取用户个人信息
+		let params = {
+			uid: global.user.userData.uid,
+		};
+		fetchRequest('/app/getUserInfo', 'POST', params).then(res => {
+			if(res == 'Error') {
+				console.log('friends getUserInfo Error');
+			}
+			else {
+				console.log('friends.getUserInfo res: ', res);
+				this.setState({
+					userInfo: res[0],
+					ready: true,
+				})
+			}
+		})
+		.catch(err => {
+			console.log('friends.getUserInfo err: ',err);
+		})
+	}
+
+	_showUser(ready, user) {
+		if(ready) {
+			return (
+				<View style={{ alignItems: 'center' }}>
+					<Image source={{ uri: imgCom_url + this.state.userInfo.avatar}} style={styles.avatar} />
+					<Text>{this.state.userInfo.name}</Text>
+				</View>
+			)
 		}
 	}
 
@@ -89,8 +126,7 @@ export default class FriendScreen extends Component {
 		return (
 			<View style={styles.container}>
 				<ImageBackground source={require('../../../localResource/images/bgFriend.png')} style={styles.header}>
-					<Image source={require('../../../localResource/images/avatar1.jpg')} style={styles.avatar} />
-					<Text>{currentUserName}</Text>
+					{this._showUser(this.state.ready, this.state.userInfo)}
 				</ImageBackground>
 				<View style={styles.switchTabWrap}>
 					<TouchableOpacity 
@@ -116,6 +152,109 @@ export default class FriendScreen extends Component {
 }
 
 class Friends extends Component {
+	constructor(props) {
+		super(props);
+		this.state = {
+			ready: null,
+			data: null,
+		};
+	}
+
+	componentDidMount() {
+		//get friends
+		this.getFriends();
+	}
+
+	getFriends() {
+		let params = {
+			uid: global.user.userData.uid,
+		};
+		fetchRequest('/app/getFriends', 'POST', params).then(res => {
+			if(res == 'Error') {
+				console.log('getFriends error');
+			}
+			else {
+				console.log('getFriends res: ', res);
+				res.map((value, key) => {
+					value.key = key;
+				})
+				//找出所有种类首字母的第一次出现位置
+				let title = null;
+				let bkPoint = [];
+				let reg = /[a-z]/;
+				let firstIllegal = false;
+				res.map((value, key) => {
+					if(!title && reg.test(value.firstLetter)) {
+						title = value.firstLetter;
+						bkPoint.push(key);
+						console.log('firstletter: ', value.firstLetter, 'key: ', key);
+					}
+					else if(reg.test(value.firstLetter) && (title != value.firstLetter) ) {
+						bkPoint.push(key);
+						title = value.firstLetter;
+						bkPoint.push(key);
+					}
+					//字母用户名后首位用户名首字母为非字母的用户名
+					else if( title && !reg.test(value.firstLetter) && !firstIllegal) {
+						bkPoint.push(key);
+						firstIllegal = true;
+					}
+					if((key == res.length - 1) && reg.test(value.firstLetter)) {
+						bkPoint.push(res.length);
+					}
+				})
+				let sectionData = [];
+				//添加所有首字符为字母的用户
+				for(let i = 0; i < bkPoint.length - 1; i += 2) {
+					let temp = {};
+					temp.title = res[bkPoint[i]].firstLetter.toUpperCase();
+					temp.data = res.slice(bkPoint[i], bkPoint[i+1]);					
+					sectionData.push(temp);
+				}
+				
+				//存在首字符为非字母的用户名
+				if(bkPoint[0] != 0 || (bkPoint[bkPoint.length - 1] < res.length - 1)) {
+					res.splice(bkPoint[0], bkPoint[bkPoint.length - 1]);
+					let temp = {};
+					temp.title = '#';
+					temp.data = res;
+					sectionData.push(temp);
+				}
+				console.log('sectionData: ', sectionData);
+				this.setState({
+					data: sectionData,
+					ready: true,
+				})
+				console.log('bkPoint: ', bkPoint);
+			}
+		})
+		.catch(err => {
+			console.log('getFriends err: ', err);
+		})
+	}
+
+	_onCheckUser(that, userId) {
+		let uid = global.user.userData.uid;
+		let params = {
+			current_uid: uid,
+			rec_uid: userId,
+		};
+		fetchRequest('/app/getCor', 'POST', params).then(res => {
+			if(res == 'Error') {
+				console.log('getCor error');
+			}
+			//获取两用户之间的评分成功
+			else {
+				console.log('getCor res: ', res);
+				let correlation = res[0].correlation;
+				that.props.navigation.navigate('UserInfo', {uid: userId, correlation: correlation});
+			}
+		})
+		.catch(err => {
+			console.log('getCor err: ', err);
+		})		
+	}
+
 	_showItem(item, that) {
 		let userName = item ? item.userName : null;
 		let avatar = item ? item.avatar : null;
@@ -124,10 +263,10 @@ class Friends extends Component {
 			<TouchableOpacity 
 				style={styles.friItemWrap} 
 				activeOpacity={1} 
-				onPress={ () => that.props.navigation.navigate('UserInfo') }
+				onPress={ () => this._onCheckUser(that, item.uid) }
 			>
-				<Image style={styles.friItemAvatar} source={require('../../../localResource/images/avatar1.jpg')} />
-				<Text>{item.userName}</Text>
+				<Image style={styles.friItemAvatar} source={{ uri: imgCom_url + item.avatar}} />
+				<Text>{item.name}</Text>
 			</TouchableOpacity>
 		)
 	}
@@ -138,6 +277,28 @@ class Friends extends Component {
 				<Text style={{ fontSize: 12, color: '#ccc', }}>暂无更多消息~</Text>
 			</View>
 		)
+	}
+
+	_showFriends(ready, data, that) {
+		//数据加载完毕
+		if(ready) {
+			return (
+				<SectionList 
+					// listFooterComponent={ () => <Text>Nothing more </Text>}	
+					// contentContainerStyle={{paddingBottom: 54 }}
+					sections={data} 
+					renderItem={ ({item}) => this._showItem(item, that) }
+					renderSectionHeader={ ({section}) => <Text style={styles.sectionHeader}>{section.title}</Text> } 
+				/>
+			)
+		}
+		else {
+			return (
+				<View style={{height: listAvatarHeight, justifyContent: 'center', alignItems: 'center'}}>
+					<Text>正在加载...</Text>
+				</View>
+			)
+		}
 	}
 
 	render() {
@@ -151,13 +312,7 @@ class Friends extends Component {
 							<Text style={{ paddingLeft: PadSide, fontSize: 13, color: '#ccc', }}>搜索</Text>
 						</TouchableOpacity>
 					</View>
-					<SectionList 
-						// listFooterComponent={ () => <Text>Nothing more </Text>}	
-						// contentContainerStyle={{paddingBottom: 54 }}
-						sections={contactsData} 
-						renderItem={ ({item}) => this._showItem(item, that) }
-						renderSectionHeader={ ({section}) => <Text style={styles.sectionHeader}>{section.title}</Text> } 
-					/>
+					{this._showFriends(this.state.ready, this.state.data, that)}
 				</View>
 			)
 		}
@@ -171,6 +326,16 @@ class Friends extends Component {
 }
 
 class NewFriends extends Component {
+	// constructor(props) {
+	// 	super(props);
+	// 	this.state = {
+	// 		sayHi: null, //我跟别人打招呼的
+	// 		sayHiOther: null, //别人跟我打招呼的
+	// 		friRequests: null,
+	// 		ready: false,
+	// 	}
+	// }
+
 	render() {
 		let that = this.props.parentRef;
 		return (
@@ -178,6 +343,7 @@ class NewFriends extends Component {
 				<NewFriSec title="跟我打招呼的" that={that}/>
 				<NewFriSec title="我向Ta打招呼的" that={that}/>
 				<NewFriSec title="申请与我聊天的" that={that}/>
+				<NewFriSec title="邀请我进入房间的" that={that} />
 			</ScrollView>
 		)
 	}
@@ -190,24 +356,83 @@ class NewFriSec extends Component {
 			rotateAnim: new Animated.Value(90),
 			contentVisible: true,
 			data: null,
+			ready: false,
 		}
+	}
+	//获取好友请求
+	getFriReq() {
+		let params = {
+			uid: global.user.userData.uid,
+		};
+		fetchRequest('/app/getFriReq', 'POST', params).then(res => {
+			if(res == 'Error') {
+				console.log('getFriReq error');
+			}
+			else {
+				console.log('getFriReq res: ', res);
+				res.map((value, key) => {
+					value.key = key;
+				})
+				this.setState({
+					data: res,
+					ready: true,
+				})
+			}
+		})
+		.catch(err => {
+			console.log('getFriReq err: ', err);
+		})
+	}
+
+	//获取房间请求
+	getRoomReq() {
+		let params = {
+			to_uid: global.user.userData.uid,
+		};
+		fetchRequest('/app/getRoomReq', 'POST', params).then( res => {
+			if(res == 'Error') {
+				console.log('getRoomReq error');
+			}
+			else {
+				console.log('getRoomReq res: ', res);
+				res.map((value, key) => {
+					value.key = key;
+				})
+				this.setState({
+					data: res,
+					ready: true,
+				})
+			}
+		})
+		.catch(err => {
+			console.log('getRoomReq err: ', err);
+		})
 	}
 
 	componentDidMount() {
 		if(this.props.title == '跟我打招呼的') {
+			//get sayhitome data
 			this.setState({
 				data: sayHiToMe,
 			})
 		}
 		else if(this.props.title == '我向Ta打招呼的') {
+			//get sayhiOther data
 			this.setState({
 				data: sayHiOther,
 			})
 		}
-		else {
-			this.setState({
-				data: friReqData,
+		//好友请求列表
+		else if(this.props.title == '申请与我聊天的') {
+			this.getFriReq();
+			this.listener = DeviceEventEmitter.addListener('getNewMoment', function() {
+				console.log('emitter working');
+				this.getFriReq();
 			})
+		}
+		//房间邀请列表
+		else {
+			this.getRoomReq();
 		}
 	}
 
@@ -247,9 +472,9 @@ class NewFriSec extends Component {
 		)
 	}
 
-	_showContent(title, that, contentVisible) {
-		if(contentVisible) {
-		//Todo: get data
+	_showContent(ready, title, that, contentVisible) {
+		//数据加载成功并且当前项目可见
+		if(ready && contentVisible) {
 			if(title == '跟我打招呼的') {
 				return (
 					<FlatList data={this.state.data} renderItem={ ({item}) => this._showSayHi('toMe', item, that) } />
@@ -260,11 +485,19 @@ class NewFriSec extends Component {
 					<FlatList data={this.state.data} renderItem={ ({item}) => this._showSayHi('toOther',item, that) } />
 				)
 			}
+			//好友邀请与房间邀请
 			else {
 				return (
-					<FlatList data={this.state.data} renderItem={ ({item, index}) => <FriRequest item={item} index={index} /> } />
+					<FlatList data={this.state.data} renderItem={ ({item, index}) => <FriRequest item={item} index={index} that={that} /> } />
 				)
 			}
+		}
+		else if(contentVisible) {
+			return (
+				<View style={{height: listAvatarHeight, justifyContent: 'center', alignItems: 'center'}}>
+					<Text>正在加载...</Text>
+				</View>
+			)
 		}
 		else 
 			return null;
@@ -286,7 +519,7 @@ class NewFriSec extends Component {
 					<Text style={{ paddingLeft: PadSide, fontSize: 13,}}>{this.props.title}</Text>
 				</TouchableOpacity>
 				<View style={styles.mainWrap}>
-					{this._showContent(this.props.title, this.props.that, this.state.contentVisible)}
+					{this._showContent(this.state.ready, this.props.title, this.props.that, this.state.contentVisible)}
 				</View>
 			</View>
 		)
@@ -303,14 +536,43 @@ class FriRequest extends Component {
 	}
 
 	componentDidMount() {
-		let isFriend = this.props.item ? this.props.item.isFriend : null;
+		let isFriend = this.props.item.status ? true : false;
 		this.setState({
 			// item: this.props.item,
 			isFriend: isFriend,
 		})
 	}
 
-	_showAddBtn(isFriend, index) {
+	componentWillReceiveProps(nextProps) {
+		let isFriend = nextProps.item.status ? true : false;
+		this.setState({
+			// item: this.props.item,
+			isFriend: isFriend,
+		})
+	}
+
+	_onAddFri(userId) {
+		let params = {
+			uid: global.user.userData.uid,
+			userId: userId,
+		};
+		fetchRequest('/app/addFriend', 'POST', params).then(res => {
+			if(res == 'Error') {
+				console.log('addFriend error');
+			}
+			else {
+				console.log('addFriend success');
+				this.setState({
+					isFriend: true,
+				})
+			}
+		})
+		.catch(err => {
+			console.log('addFriend err: ', err);
+		})
+	}
+
+	_showAddBtn(isFriend, userId, index) {
 		if(isFriend) {
 			return (
 				<View style={[styles.addBtn, {backgroundColor: 'white'},]}>
@@ -322,12 +584,7 @@ class FriRequest extends Component {
 			return (
 				<TouchableOpacity 
 					style={styles.addBtn} 
-					onPress={ () => {
-						//Todo: add user to friendlist
-						this.setState({ isFriend: true, });
-						console.log('this.state is ', this.state);  
-						} 
-					}
+					onPress={ () => this._onAddFri(userId) }
 				>
 					<Text>添加</Text>
 				</TouchableOpacity>
@@ -335,19 +592,43 @@ class FriRequest extends Component {
 		}
 	}
 
+	_onCheckUser(userId, that) {
+		let uid = global.user.userData.uid;
+		let params = {
+			current_uid: uid,
+			rec_uid: userId,
+		};
+		fetchRequest('/app/getCor', 'POST', params).then(res => {
+			if(res == 'Error') {
+				console.log('getCor error');
+			}
+			//获取两用户之间的评分成功
+			else {
+				console.log('getCor res: ', res);
+				let correlation = res[0].correlation;
+				that.props.navigation.navigate('UserInfo', {uid: userId, correlation: correlation});
+			}
+		})
+		.catch(err => {
+			console.log('getCor err: ', err);
+		})
+	}
+
 	render() {
 		let item = this.props.item;
+		let that = this.props.that;
 		let index = this.props.index;
-		let userName = item ? item.userName : null;
+		let userId = item ? item.uid : null;
+		let name = item ? (item.fri_name ? `${item.name}(${item.fri_name})` : item.name) : null;
 		let avatar = item ? item.avatar : null;
 
 		return (
 			<View style={styles.itemWrap}>
-				<TouchableOpacity style={styles.itemLeft} activeOpacity={0.6} onPress={() => {that.props.navigation.navigate('UserInfo')} }>
-					<Image style={styles.friItemAvatar} source={require('../../../localResource/images/avatar2.jpg')} />
-					<Text>{userName}</Text>
+				<TouchableOpacity style={styles.itemLeft} activeOpacity={0.6} onPress={() => this._onCheckUser(userId, that) }>
+					<Image style={styles.friItemAvatar} source={{ uri: imgCom_url + avatar }} />
+					<Text>{name}</Text>
 				</TouchableOpacity>
-				{this._showAddBtn(this.state.isFriend, index)}
+				{this._showAddBtn(this.state.isFriend, userId, index)}
 			</View>
 		)
 	}

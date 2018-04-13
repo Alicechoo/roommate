@@ -109,12 +109,42 @@ export default class CommentScreen extends PureComponent {
 		// ];
 	}
 
-	listHeader(name, time, content, avatar, uid, userId) {
+	_onCheckUser(uid, userId) {
+		let params = {
+			current_uid: uid,
+			rec_uid: userId,
+		};
+		fetchRequest('/app/getCor', 'POST', params).then(res => {
+			if(res == 'Error') {
+				console.log('getCor error');
+			}
+			else {
+				let correlation = res[0].correlation;
+				this.props.navigation.navigate('UserInfo', {uid: userId, correlation: correlation})
+			}
+		})
+		.catch(err => {
+			console.log('getCor err: ', err);
+		})
+	}
+
+	_showPic(picture) {
+		if(picture) {
+			return (
+				<Image style={{ width: ScreenWidth - 3*PadSide, height: 220 }} source={{ uri: imgCom_url + picture}} />
+			)
+		}
+		else {
+			return null;
+		}
+	}
+
+	listHeader(name, time, content, avatar, picture, uid, userId) {
 		return (
 			<View>
 				<View style={styles.TopicWrap}>
 					<View style={styles.userInfoWrap}>
-						<TouchableOpacity activeOpacity={0.6} onPress={() => {console.log('pressed'); this.props.navigation.navigate('UserInfo', {uid: uid})}}>
+						<TouchableOpacity activeOpacity={0.6} onPress={() => this._onCheckUser(uid, userId)}>
 							<Image style={styles.avatar} source={{ uri: imgCom_url + avatar }} />
 						</TouchableOpacity>
 						<View style={styles.middleWrap}>
@@ -125,6 +155,7 @@ export default class CommentScreen extends PureComponent {
 					</View>
 					<View style={styles.contentWrap}>
 						<Text>{content}</Text>
+						{this._showPic(picture)}
 					</View>
 				</View>
 				<View style={styles.commentTitle}>
@@ -236,6 +267,7 @@ export default class CommentScreen extends PureComponent {
 		let userId = item ? item.uid : null;
 		let avatar = item ? item.avatar : null;
 		let mem_id = item ? item.mem_id : null;
+		let picture = item ? item.picture : null;
 		// let uid = global.user.userData.uid;
 
 		// console.log("item is ", item);
@@ -255,7 +287,7 @@ export default class CommentScreen extends PureComponent {
 					<ScrollView style={styles.main}>
 						<FlatList 
 							data={ this.state.data }
-							ListHeaderComponent={this.listHeader(name, time, content, avatar, uid, userId)}
+							ListHeaderComponent={this.listHeader(name, time, content, avatar, picture, uid, userId)}
 							ListFooterComponent={this.listFooter()} 
 							renderItem={ ({item}) => <CommentItem item={item} uid={uid} parentRef={this}/> }
 							contentContainerStyle={{paddingBottom: 8 }}

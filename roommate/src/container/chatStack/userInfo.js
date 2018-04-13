@@ -1,9 +1,20 @@
 import React, { Component } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList, Alert, Image, ImageBackground, ScrollView, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList, Alert, Image, ImageBackground, ScrollView, Modal, TextInput, DeviceEventEmitter } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { NavigationActions } from 'react-navigation';
+import '../../config/UserAgent';
+import io from 'socket.io-client/dist/socket.io.js';
 import fetchRequest from '../../config/request.js';
 
+// const socket = io('http://172.27.18.69:8080', {
+// 	jsonp: false
+// 	// transports: ['websocket']
+// });
+// console.log('socket.socket: ', socket);
+// // socket.connect();
+// socket.on('connect', () => {
+// 	console.log('connected!');
+// })
 let imgCom_url = 'http://192.168.253.1:8080/images';
 let ScreenHeight = Dimensions.get('window').height;
 let ScreenWidth = Dimensions.get('window').width;
@@ -48,7 +59,7 @@ export default class UserInfoScreen extends Component {
 			inputLen: 0,
 			remark: null,
 			modalVisible: false,
-		}
+		}	
 	}
 
 	componentDidMount() {
@@ -83,8 +94,8 @@ export default class UserInfoScreen extends Component {
 						else {
 							console.log('friCheck res: ',res2);
 							this.setState({
-								isFriend: res2.length ? true : false,
-								friName: res2.length ? res2[0].fri_name : null,
+								isFriend: res2.length && res2[0].status ? true : false,
+								friName: res2.length && res2[0].status ? res2[0].fri_name : null,
 								userInfo: res1[0],
 								ready: true,
 							})
@@ -161,9 +172,26 @@ export default class UserInfoScreen extends Component {
 		})
 	}
 
-	_onAddRemark() {
+	_onAddRemark(remark, userId) {
 		//Todo add remark to the back-end if the remark isn't empty
-		this._onClose();
+		let params = {
+			uid: global.user.userData.uid,
+			userId: userId,
+			remark: remark,
+		};
+		fetchRequest('/app/addRemark', 'POST', params).then(res => {
+			if(res == 'Error') {
+				console.log('addRemark error');
+			}
+			else {
+				console.log('addRemark true');
+				this.setState({
+					friName: remark,
+				})
+				DeviceEventEmitter.emit('getNewRemark');
+				this._onClose();
+			}
+		})
 	}
 
 	_onSendMes() {
@@ -172,21 +200,30 @@ export default class UserInfoScreen extends Component {
 			index: 1,
 			actions: [
 				NavigationActions.navigate({ routeName: 'Main'}),
-				NavigationActions.navigate({ routeName: 'ChatRoom', params: { userid: {userId} } })
+				NavigationActions.navigate({ routeName: 'ChatRoom', params: { userId: {userId} } })
 			],
 		});
 		this.props.navigation.dispatch(resetAction);
 	}
 
 	_onSendFriendRequest() {
-		// Alert.alert(
-		// 	'加好友',
-		// 	'好友请求已发送',
-		// 	[
-		// 		{text: '确定', onPress: () => console.log('OK Pressed')},
-		// 	]
-		// )
-		//Todo: send invate to userId
+		//发送好友请求
+		global.user.userSocket.emit('friRequest', {from: global.user.userData.uid, to: this.state.userId});
+		let params = {
+			userId: this.state.userId,
+			uid: global.user.userData.uid,
+		};
+		fetchRequest('/app/friRequest', 'POST', params).then(res => {
+			if(res == 'Error') {
+				console.log('friRequest error');
+			}
+			else {
+				console.log('friRequest success');
+			}
+		})
+		.catch(err => {
+			console.log('friRequest err: ', err);
+		})
 		this.setState({
 			modalVisible: true,
 		})
@@ -236,7 +273,7 @@ export default class UserInfoScreen extends Component {
 					/>
 					<View style={styles.modalFooter}>
 						<View style={styles.modalRemind}></View>
-						<TouchableOpacity style={styles.modalBtn} onPress={ () => {this._onAddRemark()} }>
+						<TouchableOpacity style={styles.modalBtn} onPress={ () => {this._onAddRemark(this.state.remark, this.state.userId)} }>
 							<Text>添加</Text>
 						</TouchableOpacity>
 						<View style={styles.modalRemind}>
@@ -260,12 +297,14 @@ export default class UserInfoScreen extends Component {
 	}
 
 	_showNickName(isFriend) {
+		let friName = this.state.friName ? this.state.friName : '您还未给该好友添加备注';
+		let color = this.state.friName ? '#666' : '#ccc';
 		if(isFriend) 
 			return (
 				<View style={styles.detailList}>
 					<View style={styles.detailList}>
 						<Icon name="ios-at-outline" size={21} />
-						<Text style={{ marginLeft: PadSide, }}>Ta的昵称：{this.state.friName}</Text>
+						<Text style={{ marginLeft: PadSide, color: color}}>Ta的备注：{friName}</Text>
 					</View>
 				</View>
 			);

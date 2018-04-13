@@ -8,6 +8,13 @@ var app = express();
 var crypto = require('crypto');
 //图片上传
 var formidable = require('formidable');
+//socket.io
+var http = require('http').Server(app);
+var io = require('socket.io')(http);
+console.log('io: ', io);
+var clients = {};
+//中文拼音
+var pinyin = require('pinyin');
 // //主页面Tab路由
 // var main = require('./mainTab');
 // app.use('/app', main);
@@ -40,9 +47,10 @@ function md5(text) {
 	return crypto.createHash('md5').update(text).digest('hex');
 }
 
-app.get('/app/signIn', function(req, res) {
+app.get('/', function(req, res) {
 	console.log('req.url: ', req.url);
-	res.json({ user: 'tobi' }); 
+	res.sendFile(__dirname + '/index.html');
+	// res.json({ user: 'tobi' }); 
 	// res.send('Hello World');
 });
 
@@ -111,10 +119,11 @@ app.post('/app/signIn', function(req, res) {
 app.post('/app/logout', function (req, res, next) {
 	req.session.destroy(function(err) {
 		if(err) {
+			console.log('logOut error');
 			res.json('Error');
 			return;
 		}
-
+		console.log('logOut.success');
 		res.clearCookie();
 		res.json('Success');
 	})
@@ -359,7 +368,7 @@ app.post('/app/getUserInfo', function(req, res) {
 	});
 	connection.connect();
 
-	var sql = 'SELECT name, avatar, labels, signature, sex FROM user_info WHERE uid=?';
+	var sql = 'SELECT name, avatar, labels, signature, sex, rid FROM user_info WHERE uid=?';
 	var sqlParams = uid;
 	connection.query(sql, sqlParams, function(err, result) {
 		if(err) {
@@ -408,6 +417,42 @@ app.post('/app/uploadImage', function(req, res) {
 	})
 })
 
+app.post('/app/uploadPic', function(req, res) {
+	
+	let domain = 'http://localhost:8080';
+	let AVATAR_UPLOAD_FOLDER = '/images/memPic/';
+	let form = new formidable.IncomingForm(); //创建上传表单
+	form.encoding = 'utf-8';
+	form.uploadDir = 'public' + AVATAR_UPLOAD_FOLDER;
+	// form.keepExtension = true; //保留后缀
+
+	console.log('about to parse');
+	form.parse(req, function(err, fields, files) {
+		console.log('uploadImage req.session: ', req.session);
+		if(err) {
+			console.log('uploadPic err: ', err);
+			res.json('Error');
+			return;
+		}
+		
+		console.log('uploadPic files: ', files);
+		// console.log(files.upload.path);
+		let uid = req.session.user.uid;
+		let time = new Date();
+		let seconds = time.getTime();
+		let avatarName = `${uid}${seconds}.jpg`;
+		console.log('avatarName: ', avatarName);
+		let newPath = form.uploadDir + avatarName;
+		let showUrl = '/memPic/' + avatarName;
+		console.log('newPath: ', newPath);
+		fs.renameSync(files.files.path, newPath);
+		res.json({
+			'picture': showUrl,
+		})
+		// fs.writeFileSync('public/images/test.png', fs.readFileSync(files.upload.path));
+		// res.redirect('/public/upload.html')
+	})
+})
 app.post('/app/modifyInfo', function(req, res) {
 	console.log('modifyInfo req.body: ', req.body);
 	let userInfo = req.body;
@@ -605,7 +650,7 @@ app.post('/app/addMoment', function(req, res) {
 	console.log('addMoment req.body: ', req.body);
 	let uid = req.body.uid;
 	let content = req.body.content;
-	// let date = req.body.date;
+	let picture = req.body.picture;
 
 	let connection = mysql.createConnection({
 		host: 'localhost',
@@ -615,8 +660,8 @@ app.post('/app/addMoment', function(req, res) {
 	});
 	connection.connect();
 
-	let sql = 'INSERT INTO moment(mem_id, uid, content, time) VALUES (null, ?, ?, null)';
-	let sqlParams = [uid, content];
+	let sql = 'INSERT INTO moment(mem_id, uid, content, time, picture) VALUES (null, ?, ?, null, ?)';
+	let sqlParams = [uid, content, picture];
 	connection.query(sql, sqlParams, function(err, result) {
 		if(err) {
 			console.log('addMoment err: ', err);
@@ -651,7 +696,7 @@ app.post('/app/getMoment', function(req, res) {
 			return;
 		}
 		console.log('sex result: ', result1);
-		let sql = 'SELECT b.name, b.avatar, DATE_FORMAT(a.time, "%Y-%m-%d %H:%i:%s") as time, a.content, a.mem_id, a.uid FROM moment a LEFT JOIN user_info b ON a.uid = b.uid WHERE b.sex = ? ORDER BY time desc';
+		let sql = 'SELECT b.name, b.avatar, DATE_FORMAT(a.time, "%Y-%m-%d %H:%i:%s") as time, a.content, a.picture, a.mem_id, a.uid FROM moment a LEFT JOIN user_info b ON a.uid = b.uid WHERE b.sex = ? ORDER BY time desc';
 		let sqlParams = result1[0].sex;
 		//获取所有同性用户所发的动态并按时间排序
 		connection.query(sql, sqlParams, function(err, result2) {
@@ -997,10 +1042,504 @@ app.post('/app/searchUser', function(req, res) {
 	// connection.end();
 })
 
-var server = app.listen(8080, '0.0.0.0', function() {
-	console.log('server.address(): ', server.address());
-	var host = server.address().address;
-	var port = server.address().port;
+//发送好友邀请
+app.post('/app/friRequest', function(req, res) {
+	console.log('friRequest req.body: ', req.body);
+	let uid = req.body.uid;
+	let userId = req.body.userId;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
 
-	console.log('Example app listening at http://%s:%s', host, port);
+	let sql = 'INSERT INTO friends(fri_id, current_uid, fri_name, status, time) VALUES (?, ?, null, 0, null)';
+	let sqlParams = [uid, userId];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('friRequest err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('friRequest success');
+		res.json('Success');
+	})
+	connection.end();
+})
+
+//接受好友邀请，成为好友
+app.post('/app/addFriend', function(req, res) {
+	console.log('req.body: ', req.body);
+	let uid = req.body.uid;
+	let userId = req.body.userId;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	//将当前用户的该好友请求status设置为1
+	let sql = 'UPDATE friends SET status = ? WHERE current_uid = ? AND fri_id = ?';
+	let sqlParams = [1, uid, userId];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('updataFri err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('friUpdata success');
+		//修改成功，添加该好友到当前用户的friends
+		let addSql = 'INSERT INTO friends(fri_id, current_uid, fri_name, status, time) VALUES (?, ?, null, 1, null)';
+		let addSqlParams = [uid, userId];
+		connection.query(addSql, addSqlParams, function(err, result) {
+			if(err) {
+				console.log('addFri err: ', err);
+				res.json('Error');
+				return;
+			}
+			console.log('addFri success');
+			res.json('Success');
+		})
+	})
+})
+
+//修改好友备注
+app.post('/app/addRemark', function(req, res) {
+	console.log('req.body: ', req.body);
+	let uid = req.body.uid;
+	let userId = req.body.userId;
+	let remark = req.body.remark;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'UPDATE friends SET fri_name = ? WHERE current_uid = ? AND fri_id = ?';
+	let sqlParams = [remark, uid, userId];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('addRemark err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('addRemark success');
+		res.json('sucess');
+	})
+	connection.end();
+})
+
+//显示好友邀请
+app.post('/app/getFriReq', function(req, res) {
+	console.log('req.body: ', req.body);
+	let uid = req.body.uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'SELECT b.name, b.avatar, b.uid, a.status, a.fri_name FROM friends a INNER JOIN user_info b ON a.fri_id = b.uid WHERE a.current_uid = ? ORDER BY a.time desc';
+	let sqlParams = uid;
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('getFriReq err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('getFriReq result: ', result);
+		res.json(result);
+	})
+	connection.end();
+})
+
+//显示好友页
+app.post('/app/getFriends', function (req, res) {
+	console.log('req.body: ', req.body);
+	let uid = req.body.uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	//按照中文排序
+	let sql = 'SELECT b.name, b.avatar, b.uid, a.status, a.fri_name FROM friends a INNER JOIN user_info b ON a.fri_id = b.uid WHERE a.current_uid = ? AND a.status = ? ORDER BY CONVERT(name USING gbk) COLLATE gbk_chinese_ci ASC';
+	let sqlParams = [uid, 1];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('getFriends err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('getFriends result: ', result);
+		//添加首字母
+		result.map((value, key) => {
+			let firstLetter = pinyin(value.name, {style: pinyin.STYLE_FIRST_LETTER});
+			value.firstLetter = firstLetter[0][0];
+		})
+		res.json(result);
+	})
+	connection.end();
+})
+
+//获取已绑定的室友
+app.post('/app/getRoomMember', function(req, res) {
+	console.log('getRoomMember req.body: ', req.body);
+	let rid = req.body.rid;
+	let uid = req.body.uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'SELECT * FROM user_info WHERE rid = ? AND uid != ?';
+	let sqlParams = [rid, uid];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('getRoomMember err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('getRoomMember result: ', result);
+		res.json(result);
+	})
+	connection.end();
+})
+
+//获取房间中邀请成功还未绑定的室友
+app.post('/app/getRoomStay', function(req, res) {
+	console.log('getRoomStay req.body: ', req.body);
+	let from_uid = req.body.from_uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'SELECT b.uid, b.name, b.avatar, a.time FROM room_request a  INNER JOIN user_info b ON a.to_uid = b.uid WHERE a.from_uid = ? AND a.status = ? ORDER BY a.time desc';
+	let sqlParams = [from_uid, 1];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('getRoomStay err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('getRoomStay result: ', result);
+		res.json(result);
+	})
+	connection.end();
+})
+
+//同意进入房间后获取房间中的好友（非绑定，非房主）
+app.post('/app/getRoomOther', function(req, res) {
+	console.log('getRoomOther req.body: ', req.body);
+	let to_uid = req.body.to_uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+	let hostSql = 'SELECT a.from_uid, b.name, b.uid, b.avatar FROM room_request a INNER JOIN user_info b ON a.from_uid = b.uid WHERE to_uid = ? AND status = ?';
+	let hostSqlParams = [to_uid, 1];
+
+	connection.query(hostSql, hostSqlParams, function(err, result) {
+		if(err) {
+			console.log('getHostId err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('getHost result: ', result);
+		let from_uid = result[0].from_uid;
+		console.log('from_uid: ', from_uid);
+	
+		let sql = 'SELECT b.uid, b.name, b.avatar, a.time FROM room_request a  INNER JOIN user_info b ON a.to_uid = b.uid WHERE a.from_uid = ? AND a.status = ? AND a.to_uid != ? ORDER BY a.time desc';
+		let sqlParams = [from_uid, 1, to_uid];
+		connection.query(sql, sqlParams, function(err1, result1) {
+			if(err1) {
+				console.log('getRoomStay err: ', err1);
+				res.json('Error');
+				return;
+			}
+			console.log('getRoomStay result: ', result1);
+			if(result1.length != 0) {
+				result.push(result1);
+			}
+			res.json(result);
+		})
+	})
+	// connection.end();
+})
+
+//房间中获取可邀请进入房间的好友列表
+app.post('/app/getRoomFri', function(req, res) {
+	console.log('getRoomFri req.body: ', req.body);
+	let uid = req.body.uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'SELECT b.name, b.avatar, b.uid, b.rid, a.fri_name FROM friends a INNER JOIN user_info b ON a.fri_id = b.uid WHERE a.current_uid = ? AND a.status = ?';
+	let sqlParams = [uid, 1];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('getRoomFri err: ', err);
+			res.json('Error');
+			return;
+		}
+		//所有的好友列表
+		console.log('getRoomFri result: ', result);
+		res.json(result);
+	})
+	connection.end();
+})
+
+//查看是否已邀请该好友
+app.post('/app/checkRoomReq', function(req, res) {
+	console.log('checkRoomReq req.body: ', req.body );
+	let from_uid = req.body.from_uid;
+	let to_uid = req.body.to_uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'SELECT * FROM room_request WHERE from_uid = ? AND to_uid = ?';
+	let sqlParams = [from_uid, to_uid];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('checkRoomReq err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('checkRoomReq result: ', result);
+		res.json(result);
+	})
+	connection.end();
+})
+
+//邀请好友进入房间
+app.post('/app/sendRoomReq', function(req, res) {
+	console.log('sendRoomReq req.body: ', req.body );
+	let from_uid = req.body.from_uid;
+	let to_uid = req.body.to_uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'INSERT INTO room_request(from_uid, to_uid, status, req_id, time) VALUES (?, ?, 0, null, null)';
+	let sqlParams = [from_uid, to_uid];
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('sendRoomReq err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('sendRoomReq result: ', result);
+		res.json('Success');
+	})
+	connection.end();
+})
+
+//房主创建房间
+app.post('/app/buildRoom', function(req, res) {
+	console.log('buildRoom req.body: ', req.body);
+	let host_uid = req.body.host_uid;
+	let members = req.body.members;
+
+	members.push({uid: host_uid});
+
+	async function addRid(members) {
+		let connection = mysql.createConnection({
+			host: 'localhost',
+			user: 'root',
+			password: 'lijinlong',
+			database: 'roommate'
+		});
+		connection.connect();
+		let build = await members.map((value, key) => {
+			let sql = 'UPDATE user_info SET rid = ? WHERE uid = ?';
+			let sqlParams = [host_uid, value.uid];
+			connection.query(sql, sqlParams, function(err, result) {
+				if(err) {
+					console.log('buildRoom err: ', err, 'key: ', key);
+					res.json('Error');
+					return'error';
+				}
+				console.log('key buildRoom ok: ', key);
+				return 'success';
+			})
+		});
+		console.log('build: ', build);
+		res.json('Success');
+	}
+	addRid(members);
+})
+
+//已绑定或房间中用户退出房间
+app.post('/app/outRoom', function(req, res) {
+	console.log('outRoom req.body: ', req.body);
+	let uid = req.body.uid;
+	let rid = req.body.rid;
+	let members = req.body.members;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let userSql = 'UPDATE user_info SET rid = ? WHERE uid = ? ';
+	let userSqlParams = [null, uid];
+	//将要退出的用户rid设置为null
+	connection.query(userSql, userSqlParams, function(err, result) {
+		if(err) {
+			console.log('update user_info err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('update user_info success');
+		//房间中被邀请用户退出房间
+		if(rid == -1 || rid != uid) {
+			let rmReqSql = 'UPDATE room_request SET status = ? WHERE to_uid = ? AND status = ?';
+			let rmReqSqlParams = [0, uid, 1];
+			connection.query(rmReqSql, rmReqSqlParams, function(err1, result1) {
+				if(err1) {
+					console.log('update room_request failed: ', err1);
+					res.json('Error');
+					return;
+				}
+				console.log('update room_request success');
+				res.json('Success');
+			})
+		}
+		//房主退出房间
+		else if(rid == uid) {
+			let rmrSql = 'DELETE FROM room_request WHERE from_uid = ?';
+			let rmrSqlParams = uid;
+			connection.query(rmrSql, rmrSqlParams, function(err1, result1) {
+				if(err1) {
+					console.log('delete room_request failed: ', err1);
+					res.json('Error');
+					return;
+				}
+				console.log('drop room_request success');
+				// res.json('Success');
+				if(members.length == 0) {
+					console.log('host got null members');
+					res.json('Success');
+				}
+				//还有其他的室友在房间中绑定，设置其他室友的rid
+				else{
+					async function setRid(members) {
+						let room_id = members[0].uid;
+						let out = await members.map((value, key) => {
+							let sql = 'UPDATE user_info SET rid = ? WHERE uid = ?';
+							let sqlParams = [room_id, value.uid];
+							connection.query(sql, sqlParams, function(err2, result2) {
+								if(err2) {
+									console.log('setOther rid err: ', err2);
+									res.json('Error');
+									return;
+								}
+							})
+						})
+						res.json('Success');
+					}
+					setRid(members);
+				}
+			})
+		}
+	})
+})
+
+//获取用户收到的房间邀请
+app.post('/app/getRoomReq', function(req, res) {
+	console.log('getRoomReq req.body: ', req.body);
+	let to_uid = req.body.to_uid;
+	let connection = mysql.createConnection({
+		host: 'localhost',
+		user: 'root',
+		password: 'lijinlong',
+		database: 'roommate'
+	});
+	connection.connect();
+
+	let sql = 'SELECT b.name, b.avatar, a.from_uid FROM room_request a INNER JOIN user_info b ON a.from_uid = b.uid WHERE a.to_uid = ?';
+	let sqlParams = to_uid;
+	connection.query(sql, sqlParams, function(err, result) {
+		if(err) {
+			console.log('getRoomReq err: ', err);
+			res.json('Error');
+			return;
+		}
+		console.log('getRoomReq result: ', result);
+		res.json(result);
+	})
+	connection.end();
+})
+
+// let clients = {};
+//使用socket.io
+io.on('connection', function(socket) {
+	console.log('a user connected: ', socket.id);
+	socket.on('join', function (params) {
+		console.log('join user: ', params.uid);
+		let userSocket = params.uid;
+		clients[userSocket] = socket;
+	})
+	 socket.on('chat message', function(msg){
+	    io.emit('chat message', msg);
+	  });
+	 //好友请求
+	 socket.on('friRequest', function(params) {
+	 	console.log('friRequest from: ', params.from, 'to: ', params.to);
+	 	//被邀请用户在线
+	 	if(clients[params.to]) {
+	 		clients[params.to].emit('friRequest', {from: params.to});
+	 	}
+	 })
+	 socket.on('disconnect', function() {
+	 	console.log('user disconnected');
+	 })
 });
+
+http.listen(8080, '0.0.0.0', function() {
+	console.log('listening on *: 8080');
+});
+// var server = app.listen(8080, '0.0.0.0', function() {
+// 	console.log('server.address(): ', server.address());
+// 	var host = server.address().address;
+// 	var port = server.address().port;
+
+// 	console.log('Example app listening at http://%s:%s', host, port);
+// });
